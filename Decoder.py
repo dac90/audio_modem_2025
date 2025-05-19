@@ -4,6 +4,7 @@ import os
 import matplotlib.pyplot as plt
 from PIL import Image
 import io
+
 #load 1 dim array of datta from column of csv file
 def load_csv(filename):
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +22,6 @@ def inverse_filter(signal,h):
     y=signal.reshape(-1, 1056)[:,32:]
     Y = np.fft.fft(y, n=1024)
     H = np.fft.fft(h, n=1024)
-
     X = Y / np.where(np.abs(H) < 1e-6, 1e-6, H)
     values=X[:,1:512].reshape(-1)
     return values
@@ -56,14 +56,14 @@ def save_file(file, name):
         f.write(file)
 
 #Combined function
-def decode_file(filename):
-    signal = load_csv(filename)
-    bits = signal_to_binary(signal,h)
-    name, size, file = extract_metadata(bits)
-    save_file(file, name)
+def decode_file(csvname):
+    signal = load_csv(csvname)
+    bits = inverse_filter(signal,h)
+    filename, file_size, file_bytes = extract_metadata(bits)
+    save_file(file_bytes, filename)
 
 #Basic implementation for weekend task
 h = load_csv('channel.csv')
 for filenum in range(1,10):
-    filename = 'file'+str(filenum)+'.csv'
-    decode_file(filename)
+    csvname = 'file'+str(filenum)+'.csv'
+    decode_file(csvname)
