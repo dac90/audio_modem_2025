@@ -20,14 +20,14 @@ def load_file(filename):
 
 #Combine the bytes to be transmitted
 def combine_bytes(filepath, file_size, file_bytes):
-    return filepath.encode('ascii') + b'\0' + file_size.encode('ascii') + b'\0' + file_bytes
+    return filepath.encode('ascii') + b'\0' + str(file_size).encode('ascii') + b'\0' + file_bytes
 
 #Create constellation
 def qpsk_encode(bytes):
     bits = np.unpackbits(np.frombuffer(bytes, dtype=np.uint8))
 
-    if len(bits) % 2 != 0:
-        bits = np.append(bits, 0)
+    pad_len = int((-len(bits)) % (2*qpsk_block_length))
+    bits = np.pad(bits, (0, pad_len), constant_values=0)
 
     bit_pairs = bits.reshape(-1, 2)
     gray_indices = ((bit_pairs[:, 0] << 1) | bit_pairs[:, 1])
@@ -45,7 +45,7 @@ def qpsk_encode(bytes):
 #Add zeroes, conjugate and prefix
 def create_transmission(qpsk_values):
     qpsk_blocks=qpsk_values.reshape(-1, qpsk_block_length)
-    zero_col = np.zeros((np.shape(qpsk_blocks)[1], 1), dtype=complex)
+    zero_col = np.zeros((np.shape(qpsk_blocks)[0], 1), dtype=complex)
     conj_blocks = np.conj(np.fliplr(qpsk_blocks))
     X = np.hstack([zero_col, qpsk_blocks, zero_col, conj_blocks])
     x = np.fft.ifft(X, n=X_block_length)
@@ -79,23 +79,26 @@ def fft_convolve(signal, h):
     N = 1 << (n - 1).bit_length()
     # FFT, multiply, and inverse FFT
     y = np.fft.ifft(np.fft.fft(signal, N) * np.fft.fft(h, N))
-    return np.real(y)[:n]
+    return np.real(y)[:len(signal)]
 
 def channel_distortion(signal,h,noise_var,csv_name):
+    print(len(signal))
     signal = fft_convolve(signal, h)
+    print(len(signal))
     signal += np.random.normal(scale=np.sqrt(noise_var), size=np.shape(signal))
+    print(len(signal))
     np.savetxt(csv_name, signal, delimiter=',')
 
 qpsk_multiplier = 20
 X_block_length = 1024
 prefix_length = 32
-qpsk_block_length = (X_block_length-2)/2
+qpsk_block_length = int((X_block_length-2)/2)
 
 h = load_csv('channel.csv')
-noise_var = 1
+noise_var = 0
 
-filename = 'file_1.tiff'
-csv_name = 'signal_1'
+filename = 'edith.wav'
+csv_name = 'signal_1.csv'
 signal = encode_file(filename)
 channel_distortion(signal,h,noise_var,csv_name)
 

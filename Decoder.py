@@ -57,12 +57,13 @@ def save_file(file, name):
 #Combined function
 def decode_file(csvname):
     signal = load_csv(csvname)
-    bytes = inverse_filter(signal,h)
+    values = inverse_filter(signal,h)
+    bytes = qpsk_decode(values)
     filename, file_size, file_bytes = extract_metadata(bytes)
     save_file(file_bytes, filename)
 
 #Basic implementation for weekend task
 h = load_csv('channel.csv')
-for filenum in range(1,10):
-    csvname = 'file'+str(filenum)+'.csv'
-    decode_file(csvname)
+
+csv_name = 'signal_1.csv'
+decode_file(csv_name)
