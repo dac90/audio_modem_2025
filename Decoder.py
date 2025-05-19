@@ -4,7 +4,7 @@ import os
 import matplotlib.pyplot as plt
 from PIL import Image
 import io
-
+#load 1 dim array of datta from column of csv file
 def load_csv(filename):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     csv_path = os.path.join(script_dir, filename)
@@ -16,22 +16,25 @@ def load_csv(filename):
             data.append(float(row[0]))
     return np.array(data)
 
-def qpsk_decode(values):
-    values = np.asarray(values)
-    bits_real = (np.real(values) < 0).astype(int)
-    bits_imag = (np.imag(values) < 0).astype(int)
-    return np.column_stack((bits_imag, bits_real)).reshape(-1)
-
-def signal_to_binary(signal,h):
+#Inverse filter and take useful portion
+def inverse_filter(signal,h):
     y=signal.reshape(-1, 1056)[:,32:]
     Y = np.fft.fft(y, n=1024)
     H = np.fft.fft(h, n=1024)
 
     X = Y / np.where(np.abs(H) < 1e-6, 1e-6, H)
     values=X[:,1:512].reshape(-1)
-    binary=qpsk_decode(values)
+    return values
+
+#Decode qpsk constelation
+def qpsk_decode(values):
+    values = np.asarray(values)
+    bits_real = (np.real(values) < 0).astype(int)
+    bits_imag = (np.imag(values) < 0).astype(int)
+    binary = np.column_stack((bits_imag, bits_real)).reshape(-1)
     return binary
 
+#Using the zero bytes, split the data into name, size and file
 def extract_metadata(bits):
     bytes = np.packbits(bits).tobytes()
 
@@ -43,6 +46,7 @@ def extract_metadata(bits):
     file = bytes[second_zero+1:second_zero+1+size]
     return name, size, file
 
+#Save decoded file next to code
 def save_file(file, name):
     base_dir = os.path.dirname(os.path.abspath(__file__))
     full_path = os.path.join(base_dir, name)
@@ -51,11 +55,15 @@ def save_file(file, name):
     with open(full_path, "wb") as f:
         f.write(file)
 
-
-h = load_csv('channel.csv')
-for filenum in range(1,10):
-    filename = 'file'+str(filenum)+'.csv'
+#Combined function
+def decode_file(filename):
     signal = load_csv(filename)
     bits = signal_to_binary(signal,h)
     name, size, file = extract_metadata(bits)
     save_file(file, name)
+
+#Basic implementation for weekend task
+h = load_csv('channel.csv')
+for filenum in range(1,10):
+    filename = 'file'+str(filenum)+'.csv'
+    decode_file(filename)
