@@ -23,8 +23,79 @@ def combine_bytes(filepath, file_size, file_bytes):
     return filepath.encode('ascii') + b'\0' + file_size.encode('ascii') + b'\0' + file_bytes
 
 #Create constellation
-def qpsk_encode():
+def qpsk_encode(bytes):
+    bits = np.unpackbits(np.frombuffer(bytes, dtype=np.uint8))
+
+    if len(bits) % 2 != 0:
+        bits = np.append(bits, 0)
+
+    bit_pairs = bits.reshape(-1, 2)
+    gray_indices = ((bit_pairs[:, 0] << 1) | bit_pairs[:, 1])
+
+    qpsk_constellation = np.array([
+        (1+1j),   # 00
+        (-1+1j),  # 01
+        (-1-1j),  # 11
+        (1-1j)    # 10
+    ]) / np.sqrt(2)
+
+    qpsk_values = qpsk_multiplier*qpsk_constellation[gray_indices]
+    return qpsk_values
+
+#Add zeroes, conjugate and prefix
+def create_transmission(qpsk_values):
+    qpsk_blocks=qpsk_values.reshape(-1, qpsk_block_length)
+    zero_col = np.zeros((np.shape(qpsk_blocks)[1], 1), dtype=complex)
+    conj_blocks = np.conj(np.fliplr(qpsk_blocks))
+    X = np.hstack([zero_col, qpsk_blocks, zero_col, conj_blocks])
+    x = np.fft.ifft(X, n=X_block_length)
+    signal = np.hstack([x[:,-prefix_length:],x]).reshape(-1)
+    return signal
 
 #Combined function
 def encode_file(filename):
-    
+    filepath, file_size, file_bytes = load_file(filename)
+    bytes = combine_bytes(filepath, file_size, file_bytes)
+    qpsk_values = qpsk_encode(bytes)
+    signal = create_transmission(qpsk_values)
+    return signal
+
+#for channel usage
+def load_csv(filename):
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(script_dir, filename)
+
+    data=[]
+    with open(csv_path, mode='r', newline='', encoding='utf-8') as file:
+        reader = csv.reader(file)
+        for row in reader:
+            data.append(float(row[0]))
+    return np.array(data)
+
+#use ft for linear convolution anyways
+def fft_convolve(signal, h):
+    n = signal.size + h.size - 1
+    # next power-of-two for speed
+    N = 1 << (n - 1).bit_length()
+    # FFT, multiply, and inverse FFT
+    y = np.fft.ifft(np.fft.fft(signal, N) * np.fft.fft(h, N))
+    return np.real(y)[:n]
+
+def channel_distortion(signal,h,noise_var,csv_name):
+    signal = fft_convolve(signal, h)
+    signal += np.random.normal(scale=np.sqrt(noise_var), size=np.shape(signal))
+    np.savetxt(csv_name, signal, delimiter=',')
+
+qpsk_multiplier = 20
+X_block_length = 1024
+prefix_length = 32
+qpsk_block_length = (X_block_length-2)/2
+
+h = load_csv('channel.csv')
+noise_var = 1
+
+filename = 'file_1.tiff'
+csv_name = 'signal_1'
+signal = encode_file(filename)
+channel_distortion(signal,h,noise_var,csv_name)
+
