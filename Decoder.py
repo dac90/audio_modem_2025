@@ -32,6 +32,7 @@ def qpsk_decode(values):
     bits_real = (np.real(values) < 0).astype(int)
     bits_imag = (np.imag(values) < 0).astype(int)
     bits = np.column_stack((bits_imag, bits_real)).reshape(-1)
+    print(bits[:10])
     bytes = np.packbits(bits).tobytes()
     return bytes
 
@@ -57,9 +58,13 @@ def save_file(file, name):
 #Combined function
 def decode_file(csvname):
     signal = load_csv(csvname)
+    print(signal[:10])
     values = inverse_filter(signal,h)
+    print(values[:10])
     bytes = qpsk_decode(values)
+    print(bytes[:10])
     filename, file_size, file_bytes = extract_metadata(bytes)
+    print(file_bytes[:10])
     save_file(file_bytes, filename)
 
 #Basic implementation for weekend task

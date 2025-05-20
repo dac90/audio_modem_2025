@@ -20,12 +20,13 @@ def load_file(filename):
 
 #Combine the bytes to be transmitted
 def combine_bytes(filepath, file_size, file_bytes):
-    return filepath.encode('ascii') + b'\0' + str(file_size).encode('ascii') + b'\0' + file_bytes
+    combined_bytes = filepath.encode('ascii') + b'\0' + str(file_size).encode('ascii') + b'\0' + file_bytes
+    return combined_bytes
 
 #Create constellation
 def qpsk_encode(bytes):
     bits = np.unpackbits(np.frombuffer(bytes, dtype=np.uint8))
-
+    print(bits[:10])
     pad_len = int((-len(bits)) % (2*qpsk_block_length))
     bits = np.pad(bits, (0, pad_len), constant_values=0)
 
@@ -35,11 +36,11 @@ def qpsk_encode(bytes):
     qpsk_constellation = np.array([
         (1+1j),   # 00
         (-1+1j),  # 01
-        (-1-1j),  # 11
-        (1-1j)    # 10
-    ]) / np.sqrt(2)
+        (1-1j),    # 10
+        (-1-1j)  # 11
+    ]) 
 
-    qpsk_values = qpsk_multiplier*qpsk_constellation[gray_indices]
+    qpsk_values = (qpsk_multiplier/ np.sqrt(2))*qpsk_constellation[gray_indices]
     return qpsk_values
 
 #Add zeroes, conjugate and prefix
@@ -55,9 +56,13 @@ def create_transmission(qpsk_values):
 #Combined function
 def encode_file(filename):
     filepath, file_size, file_bytes = load_file(filename)
+    print(file_bytes[:10])
     bytes = combine_bytes(filepath, file_size, file_bytes)
+    print(bytes[:10])
     qpsk_values = qpsk_encode(bytes)
+    print(qpsk_values[:10])
     signal = create_transmission(qpsk_values)
+    print(signal[0:10])
     return signal
 
 #for channel usage
@@ -82,14 +87,12 @@ def fft_convolve(signal, h):
     return np.real(y)[:len(signal)]
 
 def channel_distortion(signal,h,noise_var,csv_name):
-    print(len(signal))
     signal = fft_convolve(signal, h)
-    print(len(signal))
     signal += np.random.normal(scale=np.sqrt(noise_var), size=np.shape(signal))
-    print(len(signal))
+    print(signal[:10])
     np.savetxt(csv_name, signal, delimiter=',')
 
-qpsk_multiplier = 20
+qpsk_multiplier = 30
 X_block_length = 1024
 prefix_length = 32
 qpsk_block_length = int((X_block_length-2)/2)
