@@ -44,7 +44,7 @@ def qpsk_encode(bytes):
     return qpsk_values
 
 #Add zeroes, conjugate and prefix
-def create_transmission(qpsk_values):
+def create_signal(qpsk_values):
     qpsk_blocks=qpsk_values.reshape(-1, qpsk_block_length)
     zero_col = np.zeros((np.shape(qpsk_blocks)[0], 1), dtype=complex)
     conj_blocks = np.conj(np.fliplr(qpsk_blocks))

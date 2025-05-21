@@ -37,7 +37,7 @@ def qpsk_decode(values):
     return bytes
 
 #Using the zero bytes, split the data into name, size and file
-def extract_metadata(bytes):
+def split_bytes(bytes):
     first_zero = bytes.find(b'\0')
     second_zero = bytes.find(b'\0', first_zero + 1)
 
@@ -63,7 +63,7 @@ def decode_file(csvname):
     print(values[:10])
     bytes = qpsk_decode(values)
     print(bytes[:10])
-    filename, file_size, file_bytes = extract_metadata(bytes)
+    filename, file_size, file_bytes = split_bytes(bytes)
     print(file_bytes[:10])
     save_file(file_bytes, filename)
 
