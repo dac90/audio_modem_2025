@@ -1,0 +1,22 @@
+[project]
+name = "modem"
+version = "0.1.0"
+description = "Audio Modem for GF3 project"
+readme = "README.md"
+authors = [
+    { name = "Jon Tindal", email = "jon.tindal@outlook.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "matplotlib>=3.10.3",
+    "numpy>=2.2.6",
+    "scipy>=1.15.3",
+    "sounddevice>=0.5.2",
+]
+
+[project.scripts]
+modem = "modem:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
