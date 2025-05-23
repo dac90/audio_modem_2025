@@ -58,7 +58,8 @@ def encode_ofdm_symbol(
     X = np.hstack([zero_col, qpsk_blocks, zero_col, conj_blocks])
     x = np.fft.ifft(X, n=FFT_BLOCK_LENGTH)
     signal = np.hstack([x[:, -CYCLIC_PREFIX_LENGTH:], x]).reshape(-1)
-    return signal
+    np.testing.assert_allclose(np.imag(signal), np.zeros_like(signal), atol=1e-14)
+    return np.real(signal)
 
 
 def decode_ofdm_symbol(

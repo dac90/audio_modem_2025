@@ -11,12 +11,9 @@ def test_qpsk(num_bytes: int):
     channel_gain = np.ones(FFT_BLOCK_LENGTH)
 
     qpsk_symbols = qpsk.qpsk_encode(data)
-    print(qpsk_symbols.shape)
-    ofdm_symbols = qpsk.encode_ofdm_symbol(qpsk_symbols)
-    print(ofdm_symbols.shape)
+    ofdm_symbol = qpsk.encode_ofdm_symbol(qpsk_symbols)
 
-    recv_qpsk_symbols = qpsk.decode_ofdm_symbol(ofdm_symbols, channel_gain)
-    print(recv_qpsk_symbols.shape)
+    recv_qpsk_symbols = qpsk.decode_ofdm_symbol(ofdm_symbol, channel_gain)
     recv_bytes = qpsk.qpsk_decode(recv_qpsk_symbols)
 
     recv_data = recv_bytes[: len(data)]  # Truncate padding
