@@ -27,3 +27,8 @@ def record_wav(filename: str, duration: float = 10) -> None:
     audio_data = sd.rec(int(duration * FS), samplerate=FS, channels=1, blocking=True)
 
     generate_wav(filename, audio_data)
+
+
+def record_entrypoint():
+    """CLI entry point to record audio for 10 seconds"""
+    record_wav("output.wav", 10)

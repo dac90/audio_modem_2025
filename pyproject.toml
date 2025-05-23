@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-modem = "modem:main"
+modem = "modem.wav:record_entrypoint"
 
 [build-system]
 requires = ["hatchling"]
