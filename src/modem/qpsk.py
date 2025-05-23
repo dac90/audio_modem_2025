@@ -11,7 +11,11 @@ from .constants import (
 
 def qpsk_encode(bytes: bytes) -> npt.NDArray[np.complex128]:
     """Encode bytes into constellation symbols
-    using QPSK in the frequency domain, before OFDM"""
+    using QPSK in the frequency domain, before OFDM.
+    Bytes will be padded to full OFDM symbol,
+    but must fit within one symbol"""
+    max_bytes = (2 * QPSK_BLOCK_LENGTH) // 8
+    assert len(bytes) <= max_bytes, f"Cannot send more than {max_bytes} bytes"
     bits = np.unpackbits(np.frombuffer(bytes, dtype=np.uint8))
     pad_len = int((-len(bits)) % (2 * QPSK_BLOCK_LENGTH))
     bits = np.pad(bits, (0, pad_len), constant_values=0)
@@ -68,4 +72,4 @@ def decode_ofdm_symbol(
     freq_values = freq_values / channel_gains
 
     # Ignore bits 0 and 512 (zeros) and upper half of frequencies (complex conjugates)
-    return freq_values[1:512]
+    return freq_values[1:FFT_BLOCK_LENGTH//2]
