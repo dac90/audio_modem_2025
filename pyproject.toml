@@ -20,3 +20,10 @@ modem-record = "modem.wav:record_entrypoint"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15.0",
+    "pytest>=8.3.5",
+    "ruff>=0.11.11",
+]
