@@ -11,6 +11,9 @@ FFT_BLOCK_LENGTH = 8192
 # Not using 0 and middle (zeros) and upper half of frequencies (complex conjugates)
 QPSK_BLOCK_LENGTH = (FFT_BLOCK_LENGTH - 2) // 2
 
+BYTES_BLOCK_LENGTH = QPSK_BLOCK_LENGTH//4
+
 CYCLIC_PREFIX_LENGTH = 2048
 
 OFDM_SYMBOL_LENGTH = CYCLIC_PREFIX_LENGTH + FFT_BLOCK_LENGTH
+
