@@ -95,12 +95,13 @@ def encode_ofdm_symbol(
     zero_col = np.zeros((np.shape(qpsk_blocks)[0], 1), dtype=complex)
     conj_blocks = np.conj(np.fliplr(qpsk_blocks))
     X = np.hstack([zero_col, qpsk_blocks, zero_col, conj_blocks])
-    for k in range(1, int(len(X[0]) // 2 + 1)):
-        assert X[0][k] == np.conjugate(X[0][len(X[0]) - k]), (
-            f"QPSK symbol {k} is not conjugate to QPSK symbol {len(X) - k - 1}"
-        )
-        assert np.isreal(X[0][0])
-        assert np.isreal(X[0][len(X) // 2]) 
+    for i in range(X.shape[0]):
+        for k in range(1, int(len(X[i]) // 2 + 1)):
+            assert X[i][k] == np.conjugate(X[i][len(X[i]) - k]), (
+                f"QPSK symbol {k} is not conjugate to QPSK symbol {len(X) - k - 1}"
+            )
+            assert np.isreal(X[i][0])
+            assert np.isreal(X[i][len(X) // 2]) 
     x = np.fft.ifft(X, n=FFT_BLOCK_LENGTH)
     signal = np.hstack([x[:, -CYCLIC_PREFIX_LENGTH:], x]).reshape(-1)
     np.testing.assert_allclose(np.imag(signal), np.zeros_like(signal), atol=1e-14)
@@ -120,3 +121,17 @@ def decode_ofdm_symbol(
     freq_values = np.fft.fft(ofdm_symbol)[1 : FFT_BLOCK_LENGTH // 2]
     return freq_values / channel_gains
 
+#####################test the encode qpsk function
+
+"""
+
+# Define the QPSK constellation symbols
+qpsk_symbols = np.array([1+1j, 1-1j, -1-1j, -1+1j], dtype=np.complex128)
+
+# Generate a random array of 12,000 QPSK symbols
+random_qpsk_symbols = np.random.choice(qpsk_symbols, size=12000)
+
+# Test the encode_ofdm_symbol function
+signal, X = encode_ofdm_symbol(random_qpsk_symbols)
+
+"""
