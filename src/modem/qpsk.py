@@ -2,17 +2,17 @@ import numpy as np
 import numpy.typing as npt
 
 from .constants import (
+    CYCLIC_PREFIX_LENGTH,
     FFT_BLOCK_LENGTH,
     QPSK_BLOCK_LENGTH,
     QPSK_MULTIPLIER,
-    CYCLIC_PREFIX_LENGTH,
 )
 
 
 def qpsk_encode(bytes: bytes) -> npt.NDArray[np.complex128]:
     """Encode bytes into constellation symbols
     using QPSK in the frequency domain, before OFDM.
-    
+
     Parameters
     ----------
     bytes : bytes
@@ -80,5 +80,5 @@ def decode_ofdm_symbol(
     constellation symbols in frequency-domain"""
     ofdm_symbol = ofdm_symbol[CYCLIC_PREFIX_LENGTH:]  # Discard cyclic prefix
     # Ignore bits 0 and 512 (zeros) and upper half of frequencies (complex conjugates)
-    freq_values = np.fft.fft(ofdm_symbol)[1:FFT_BLOCK_LENGTH//2]
+    freq_values = np.fft.fft(ofdm_symbol)[1 : FFT_BLOCK_LENGTH // 2]
     return freq_values / channel_gains

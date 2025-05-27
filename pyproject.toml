@@ -28,3 +28,17 @@ dev = [
     "pytest>=8.3.5",
     "ruff>=0.11.11",
 ]
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+target-version = "py313"
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
