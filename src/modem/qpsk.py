@@ -120,10 +120,3 @@ def decode_ofdm_symbol(
     freq_values = np.fft.fft(ofdm_symbol)[1 : FFT_BLOCK_LENGTH // 2]
     return freq_values / channel_gains
 
-np.random.seed(42)  # For reproducibility
-random_symbols = np.random.choice(qpsk_symbols, size=23000)
-recieved, X = encode_ofdm_symbol(random_symbols)
-print(X.shape)
-print(X[0][165:175])
-print(X[0][POSITIVE_LOWER_BIN+QPSK_BLOCK_LENGTH_DATA-5:POSITIVE_LOWER_BIN+QPSK_BLOCK_LENGTH_DATA+5])
-
