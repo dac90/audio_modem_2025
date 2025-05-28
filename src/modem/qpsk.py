@@ -124,15 +124,19 @@ def encode_ofdm_symbol(
 # encode_ofdm_symbol(random_symbols)
 
 def decode_ofdm_symbol(
-    ofdm_symbol: npt.NDArray[np.float64], channel_gains: npt.NDArray[np.complex128]
+    ofdm_symbol: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.complex128]:
     """Decode time-domain OFDM symbol into
     constellation symbols in frequency-domain"""
     ofdm_symbol = ofdm_symbol[:, CYCLIC_PREFIX_LENGTH:]  # Discard cyclic prefix
-    # Ignore bits 0 and 512 (zeros) and upper half of frequencies (complex conjugates)
     freq_values = np.fft.fft(ofdm_symbol)
     freq_values = freq_values[:, POSITIVE_LOWER_BIN:POSITIVE_UPPER_BIN]
-    return freq_values / channel_gains
+
+    return freq_values
+
+def wiener_filter(y: npt.NDArray[np.complex128], h: npt.NDArray[np.complex128], snr: npt.NDArray[np.float64]):
+    x = (y * np.conj(h)) / (np.abs(h) ** 2 + (1 / snr))
+    return x
 
 #####################test the encode qpsk function
 
