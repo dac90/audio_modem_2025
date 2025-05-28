@@ -6,31 +6,27 @@ from modem.constants import (
     FFT_BLOCK_LENGTH,
     QPSK_BLOCK_LENGTH,
     QPSK_MULTIPLIER,
-    LOWER_FREQUENCY_BOUND,
-    UPPER_FREQUENCY_BOUND,
     POSITIVE_LOWER_BIN,
     POSITIVE_UPPER_BIN,
     DATA_BLOCK_LENGTH,
 )
-print("hello from qpsk.py")
 
-def qpsk_encode(bytes: bytes) -> npt.NDArray[np.complex128]:
+def qpsk_encode(bits: npt.NDArray[np.bool]) -> npt.NDArray[np.complex128]:
     """Encode bytes into constellation symbols
     using QPSK in the frequency domain, before OFDM.
 
     Parameters
     ----------
-    bytes : bytes
-        Bytes with data to be encoded.
-        Bytes will be padded to full OFDM symbol,
-        but must fit within one symbol.
+    bits : npt.NDArray[np.bool]
+        Array with bits to be encoded.
+        Bits can be any length and will be padded to full OFDM symbol.
 
     Returns
     ----------
     qpsk_values : npt.NDArray[np.complex128]
-        Returns 1D array of QPSK constellation symbols of size QPSK_BLOCK_LENGTH.
+        Returns 1D array of QPSK constellation symbols of size (n * DATA_BLOCK_LENGTH),
+        where n = (len(bits) // (2 * DATA_BLOCK_LENGTH))
     """
-    bits = np.unpackbits(np.frombuffer(bytes, dtype=np.uint8))
     pad_len = int((-len(bits)) % (2 * DATA_BLOCK_LENGTH))
     bits = np.pad(bits, (0, pad_len), constant_values=0) # FOR FUTURE : pad with non zeroez to test.
 
@@ -71,7 +67,7 @@ def encode_ofdm_symbol(
     qpsk_values: npt.NDArray[np.complex128],
     ) -> npt.NDArray[np.float64]:
     """Encode constellation symbols in frequency-domain
-    into time-domain OFDM symbol for transmitti"""
+    into time-domain OFDM symbol for transmission"""
 
     #Input: qpsk_values is a 1D array of QPSK symbols (1+j,1-j,-1+j,-1-j...1+j,-1-j,1+j,-1-j) 
     # Output : Multiple arrays of QPSK symbols, each of with qpsk data of size QPSK_BLOCK_LENGTH_DATA and 
