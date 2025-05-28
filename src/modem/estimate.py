@@ -13,7 +13,7 @@ def estimate_snr(
     # TODO: probably best to just use an input with unit power
     signal_power = np.abs(expected_symbols * channel_gains) ** 2
     error = (expected_symbols * channel_gains) - received_symbols
-    noise_power = np.sum(np.abs(error) ** 2)
+    noise_power = np.nansum(np.abs(error) ** 2, axis=0)
     return signal_power / noise_power
 
 
