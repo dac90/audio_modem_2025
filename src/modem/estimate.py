@@ -51,24 +51,25 @@ def find_LLRs(
 ) -> npt.NDArray[np.float64]:
     """Calculate the Log-Likelihood Ratios (LLRs) for each symbol."""
     # Calculate Equalised Y symbols, find real and imaginary, find conjugate of channel.
-    equalised_received = received_symbols / channel_gains
-    print("Equalised received symbols:", equalised_received)
+    equalised_received = received_symbols / channel_gains 
     real_equalised_received = np.real(equalised_received)
-    print(real_equalised_received)
     imag_equalised_received = np.imag(equalised_received)
-    print(imag_equalised_received)
     channel_gains_conjugate = np.conjugate(channel_gains)
-    print("Channel gains conjugate:", channel_gains_conjugate)
     # Calculate the LLRs
-    llrs_real = np.real(np.sqrt(2)*channel_gains_conjugate*channel_gains*real_equalised_received / (noise_var)).astype(np.float64)
-    llrs_imag = np.real(np.sqrt(2)*channel_gains_conjugate*channel_gains*imag_equalised_received / (noise_var)).astype(np.float64)
+    llrs_real = (np.sqrt(2)*channel_gains_conjugate*channel_gains*real_equalised_received / (noise_var)).astype(np.float64)
+
+    llrs_imag = (np.sqrt(2)*channel_gains_conjugate*channel_gains*imag_equalised_received / (noise_var)).astype(np.float64)
 
     return llrs_imag, llrs_real
 
+
+##############################################
+"""
 received_symbols = np.array([1+1j, 2+2j, 3+3j])
 channel_gains = np.array([1+0j, 0.5+0.5j, 1-1j])
 
 noise_var = 0.1
-lr,li = find_LLRs(received_symbols, channel_gains, noise_var)
+li,lr = find_LLRs(received_symbols, channel_gains, noise_var)
 print("LLRs Real:", lr)
 print("LLRs Imaginary:", li)
+"""
