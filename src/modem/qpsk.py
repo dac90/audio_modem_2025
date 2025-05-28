@@ -10,7 +10,7 @@ from modem.constants import (
     UPPER_FREQUENCY_BOUND,
     POSITIVE_LOWER_BIN,
     POSITIVE_UPPER_BIN,
-    QPSK_BLOCK_LENGTH_DATA 
+    DATA_BLOCK_LENGTH,
 )
 print("hello from qpsk.py")
 
@@ -30,10 +30,8 @@ def qpsk_encode(bytes: bytes) -> npt.NDArray[np.complex128]:
     qpsk_values : npt.NDArray[np.complex128]
         Returns 1D array of QPSK constellation symbols of size QPSK_BLOCK_LENGTH.
     """
-    max_bytes = (2 * QPSK_BLOCK_LENGTH) // 8
-    assert len(bytes) <= max_bytes, f"Cannot send more than {max_bytes} bytes"
     bits = np.unpackbits(np.frombuffer(bytes, dtype=np.uint8))
-    pad_len = int((-len(bits)) % (2 * QPSK_BLOCK_LENGTH))
+    pad_len = int((-len(bits)) % (2 * DATA_BLOCK_LENGTH))
     bits = np.pad(bits, (0, pad_len), constant_values=0) # FOR FUTURE : pad with non zeroez to test.
 
     bit_pairs = bits.reshape(-1, 2)
@@ -78,6 +76,21 @@ def encode_ofdm_symbol(
     #Input: qpsk_values is a 1D array of QPSK symbols (1+j,1-j,-1+j,-1-j...1+j,-1-j,1+j,-1-j) 
     # Output : Multiple arrays of QPSK symbols, each of with qpsk data of size QPSK_BLOCK_LENGTH_DATA and 
     #          zeroes of length POSITIVE_LOWER_BIN and POSITIVE_UPPER_BIN at the beginning and end of the array.
+    assert qpsk_values.shape[0] % DATA_BLOCK_LENGTH == 0, f"QPSK values need to be an even multiple of OFDM length, got {qpsk_values.shape[0]}"
+    qpsk_data_blocks = qpsk_values.reshape(-1, DATA_BLOCK_LENGTH)
+    qpsk_blocks = np.zeros((qpsk_data_blocks.shape[0], FFT_BLOCK_LENGTH//2), dtype=np.complex128)
+    qpsk_blocks[:, POSITIVE_LOWER_BIN:POSITIVE_UPPER_BIN] = qpsk_data_blocks
+    qpsk_blocks = qpsk_blocks[:, 1:]
+
+    conj_blocks = np.conj(np.fliplr(qpsk_blocks))
+    zero_col = np.zeros((np.shape(qpsk_blocks)[0], 1), dtype=np.complex128)
+    X = np.hstack([zero_col, qpsk_blocks, zero_col, conj_blocks])
+
+    x = np.fft.ifft(X, n=FFT_BLOCK_LENGTH)
+    x = np.hstack([x[:, -CYCLIC_PREFIX_LENGTH:], x])
+    np.testing.assert_allclose(np.imag(x), np.zeros_like(x), atol=1e-14)
+
+    return np.real(x)
 
     chunk_size = QPSK_BLOCK_LENGTH_DATA
     qpsk_values_chunks = [qpsk_values[i:i + chunk_size] for i in range(0, len(qpsk_values), chunk_size)]
@@ -92,7 +105,6 @@ def encode_ofdm_symbol(
     qpsk_blocks = np.array(padded_chunks)
     qpsk_blocks = qpsk_blocks.reshape(-1, QPSK_BLOCK_LENGTH)
 
-    zero_col = np.zeros((np.shape(qpsk_blocks)[0], 1), dtype=complex)
     conj_blocks = np.conj(np.fliplr(qpsk_blocks))
     X = np.hstack([zero_col, qpsk_blocks, zero_col, conj_blocks])
     for i in range(X.shape[0]):
@@ -109,16 +121,17 @@ def encode_ofdm_symbol(
     print("passes test")
     return np.real(signal), X
 
-encode_ofdm_symbol(random_symbols)
+# encode_ofdm_symbol(random_symbols)
 
 def decode_ofdm_symbol(
     ofdm_symbol: npt.NDArray[np.float64], channel_gains: npt.NDArray[np.complex128]
 ) -> npt.NDArray[np.complex128]:
     """Decode time-domain OFDM symbol into
     constellation symbols in frequency-domain"""
-    ofdm_symbol = ofdm_symbol[CYCLIC_PREFIX_LENGTH:]  # Discard cyclic prefix
+    ofdm_symbol = ofdm_symbol[:, CYCLIC_PREFIX_LENGTH:]  # Discard cyclic prefix
     # Ignore bits 0 and 512 (zeros) and upper half of frequencies (complex conjugates)
-    freq_values = np.fft.fft(ofdm_symbol)[1 : FFT_BLOCK_LENGTH // 2]
+    freq_values = np.fft.fft(ofdm_symbol)
+    freq_values = freq_values[:, POSITIVE_LOWER_BIN:POSITIVE_UPPER_BIN]
     return freq_values / channel_gains
 
 #####################test the encode qpsk function
