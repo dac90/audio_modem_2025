@@ -1,4 +1,4 @@
-from .constants import DATA_PER_PILOT
+from modem.constants import DATA_PER_PILOT
 
 def interleave_pilot_blocks(data_blocks, pilot_blocks):
     result = []
@@ -15,3 +15,12 @@ def interleave_pilot_blocks(data_blocks, pilot_blocks):
                     result.append(data_blocks[data_index])
                     data_index += 1
     return result
+###################################################
+
+
+"""
+data_blocks = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+pilot_blocks = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+interleaved_blocks = interleave_pilot_blocks(data_blocks, pilot_blocks)
+print(interleaved_blocks)
+"""
