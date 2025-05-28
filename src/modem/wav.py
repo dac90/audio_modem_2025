@@ -21,6 +21,7 @@ def read_wav(filename) -> np.ndarray:
 def generate_wav(filename: str, audio: np.ndarray) -> None:
     """Save audio data to filename in WAV_LOCATION"""
     file_path = WAV_LOCATION / filename
+    audio = audio.astype(np.float32)
     scipy.io.wavfile.write(file_path, FS, audio)
     print(f"Saved to {file_path}")
 
