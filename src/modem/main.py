@@ -15,8 +15,11 @@ from modem.constants import (
     ldpc_rate,
     ldpc_z_val,
     ldpc_ptype,
+    ldpc_dec_type,
+    corr_factor,
     FS,
     LDPC_INPUT_LENGTH,
+    LDPC_OUTPUT_LENGTH,
 )  ###
 from modem.chirp import synchronise  ###-
 from modem.ldpc import code  ###
@@ -64,6 +67,17 @@ def decode_data(signal: npt.NDArray[np.float64], plot: bool = False) -> None:
         cbar = fig.colorbar(pcm, ax=ax, label="Power/Frequency (dB/Hz)")
 
     num_ofdm_symbols = recv_ofdm_symbols.shape[0]
+    length_ofdm_symbol = recv_ofdm_symbols.shape[1]
+    ### LDPC implementation
+    flattened_recv_ofdm_symbols = recv_ofdm_symbols.flatten()
+    recv_ofdm_symbols_chunks = [flattened_recv_ofdm_symbols[i:i + LDPC_OUTPUT_LENGTH] for i in range(0, len(recv_ofdm_symbols), LDPC_OUTPUT_LENGTH)]
+    if recv_ofdm_symbols_chunks[-1].size < LDPC_OUTPUT_LENGTH:
+        recv_ofdm_symbols_chunks.pop() # TO DO: Is this right - Remove last chunk if it is not full or should pad until full?
+    decoded_chunks = [ldpc_code.decode(chunk, ldpc_dec_type, corr_factor)[0] for chunk in recv_ofdm_symbols_chunks] # not sure if we should input the chunk directly into LDPC Jossy needs to confirm.
+    decoded_flattened = np.concatenate(decoded_chunks) # 
+    decoded_symbols = decoded_flattened.reshape(recv_ofdm_symbols.shape) #not sure about this shaping.
+    ### LDPC implementaiton end
+
     assert num_ofdm_symbols % 2 == 1, f"Expected an odd number of total symbols"
     num_data_symbols = num_ofdm_symbols // 2
     num_pilot_symbols = num_data_symbols + 1

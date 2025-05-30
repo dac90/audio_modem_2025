@@ -31,6 +31,8 @@ ldpc_standard = '802.11n'
 ldpc_rate = '1/2'
 ldpc_z_val = 81
 ldpc_ptype = 'A'
+ldpc_dec_type = 'sumprod2'
+corr_factor = 0.7 # should have a discussion about this value.
 ldpc_code = code(standard=ldpc_standard, rate=ldpc_rate, z=ldpc_z_val, ptype=ldpc_ptype)
 LDPC_INPUT_LENGTH = ldpc_code.K #972 currently
 LDPC_OUTPUT_LENGTH = ldpc_code.Nv #972 * 2 = 1944  # Rate 1/2
