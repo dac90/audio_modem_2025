@@ -31,3 +31,5 @@ ldpc_standard = '802.11n'
 ldpc_rate = '1/2'
 ldpc_z_val = 81
 ldpc_ptype = 'A'
+LDPC_INPUT_LENGTH = 972
+LDPC_OUTPUT_LENGTH = 972 * 2  # Rate 1/2
