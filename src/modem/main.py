@@ -1,50 +1,123 @@
 import numpy as np
 import numpy.typing as npt
-import time
+import matplotlib.pyplot as plt
+import scipy.signal
 
-from modem import chirp, pilot, qpsk, wav
-from modem.constants import (BYTES_BLOCK_LENGTH,DATA_PER_PILOT,DATA_BLOCK_LENGTH,
-                            OFDM_SYMBOL_LENGTH, ldpc_standard, ldpc_rate, ldpc_z_val, ldpc_ptype) ###
-from modem.chirp import synchronise   ###-
-from modem.qpsk import recieve_signal ###
-from modem.ldpc import code ###
+from modem import chirp, pilot, qpsk, wav, estimate
+from modem.constants import (
+    BYTES_BLOCK_LENGTH,
+    DATA_PER_PILOT,
+    DATA_BLOCK_LENGTH,
+    LOWER_FREQUENCY_BOUND,
+    OFDM_SYMBOL_LENGTH,
+    UPPER_FREQUENCY_BOUND,
+    ldpc_standard,
+    ldpc_rate,
+    ldpc_z_val,
+    ldpc_ptype,
+    FS,
+    LDPC_INPUT_LENGTH,
+)  ###
+from modem.chirp import synchronise  ###-
+from modem.ldpc import code  ###
 
 
-### = Ido's addition 
+### = Ido's addition
 ldpc_code = code(standard=ldpc_standard, rate=ldpc_rate, z=ldpc_z_val, ptype=ldpc_ptype)
 proto = ldpc_code.assign_proto()
 pcmat = ldpc_code.pcmat()
 
-def encode_data(data: bytes, wav_name: str) -> npt.NDArray[np.float64]:
+
+def encode_data(data: bytes) -> npt.NDArray[np.float64]:
     data_bits = np.unpackbits(np.frombuffer(data, dtype=np.uint8))
-    data_bits = ldpc_code.encode(data_bits)  ###
-    data_qpsk_values = qpsk.qpsk_encode(data_bits)
+    data_qpsk_values = qpsk.qpsk_encode(data_bits.flatten())
     data_ofdm_symbols = qpsk.encode_ofdm_symbol(data_qpsk_values)
 
     num_ofdm_blocks = data_ofdm_symbols.shape[0]
     print(f"Data encoded into {num_ofdm_blocks} OFDM blocks")
 
-    pilot_ofdm_symbols = pilot.generate_pilot_blocks(num_ofdm_blocks + 1)
-    ofdm_symbols = pilot.interleave_pilot_blocks(data_ofdm_symbols,pilot_ofdm_symbols)
+    pilot_qpsk_symbols = pilot.generate_pilot_blocks(num_ofdm_blocks + 1)
+    pilot_ofdm_symbols = qpsk.encode_ofdm_symbol(pilot_qpsk_symbols)
+    ofdm_symbols = pilot.interleave_pilot_blocks(data_ofdm_symbols, pilot_ofdm_symbols)
 
     signal = np.concatenate((chirp.START_CHIRP, ofdm_symbols.flatten(), chirp.END_CHIRP))
-    wav.generate_wav(wav_name, signal)
-    return signal, ofdm_symbols # ido's addition
+    return signal
 
-### Ido's implementation
-def decode_data(signal: npt.NDArray[np.float64], ofdm_symbols: npt.NDArray[np.float64]) -> None:
-    recv_signal = recieve_signal()
-    aligned_recv_signal = chirp.synchronise(recv_signal, sum(map(len, ofdm_symbols)), plot_correlations=False)
-    RECIEVED_BLOCKS = int(len(aligned_recv_signal[chirp.START_CHIRP.size:-chirp.END_CHIRP.size])/OFDM_SYMBOL_LENGTH)
-    recv_ofdm_symbols = np.reshape(aligned_recv_signal[chirp.START_CHIRP.size:-chirp.END_CHIRP.size], (RECIEVED_BLOCKS, -1))
-    RECIEVED_PILOT_BLOCKS = int(1+((RECIEVED_BLOCKS-1)//(1+DATA_PER_PILOT)))
-    RECIEVED_DATA_BLOCKS = RECIEVED_BLOCKS - RECIEVED_PILOT_BLOCKS
-    data_qpsk_values = np.reshape(data_qpsk_values,[-1,DATA_BLOCK_LENGTH])
-    pilot_qpsk_symbols = np.reshape(pilot_qpsk_symbols,[-1,DATA_BLOCK_LENGTH])
-    known_qpsk_symbols = pilot.interleave_pilot_blocks(np.full((RECIEVED_DATA_BLOCKS, DATA_BLOCK_LENGTH), np.nan, dtype=np.complex128), pilot_qpsk_symbols)
-    ...
+
+def decode_data(signal: npt.NDArray[np.float64], plot: bool = False) -> None:
+    aligned_signal = chirp.synchronise(signal, plot_correlations=plot)
+    recv_ofdm_symbols = np.reshape(
+        aligned_signal[chirp.START_CHIRP.size : -chirp.END_CHIRP.size], (-1, OFDM_SYMBOL_LENGTH)
+    )[:21, :]
+
+    if plot:
+        fig, ax = plt.subplots()
+
+        f, t_spec, Sxx = scipy.signal.spectrogram(aligned_signal, FS)
+
+        pcm = ax.pcolormesh(t_spec, f, 10 * np.log10(Sxx), shading="gouraud")
+        ax.set_ylabel("Frequency [Hz]")
+        ax.set_xlabel("Time [sec]")
+        cbar = fig.colorbar(pcm, ax=ax, label="Power/Frequency (dB/Hz)")
+
+    num_ofdm_symbols = recv_ofdm_symbols.shape[0]
+    assert num_ofdm_symbols % 2 == 1, f"Expected an odd number of total symbols"
+    num_data_symbols = num_ofdm_symbols // 2
+    num_pilot_symbols = num_data_symbols + 1
+    pilot_qpsk_symbols = np.reshape(pilot.generate_pilot_blocks(num_pilot_symbols), (-1, DATA_BLOCK_LENGTH))
+    known_qpsk_symbols = pilot.interleave_pilot_blocks(
+        np.full((num_data_symbols, DATA_BLOCK_LENGTH), np.nan, dtype=np.complex128), pilot_qpsk_symbols
+    )
+
+    observed_frequency_gains = qpsk.decode_ofdm_symbol(recv_ofdm_symbols) / known_qpsk_symbols
+    avg_gain = np.nanmean(observed_frequency_gains, axis=0)
+
+    snr_estimates = estimate.estimate_snr(known_qpsk_symbols, qpsk.decode_ofdm_symbol(recv_ofdm_symbols), avg_gain)
+    avg_snr = np.nanmean(snr_estimates, axis=0)
+
+    if plot:
+        fig, ax = plt.subplots()
+        freqs = np.linspace(LOWER_FREQUENCY_BOUND, UPPER_FREQUENCY_BOUND, DATA_BLOCK_LENGTH, endpoint=False)
+        for i, block_gain in enumerate(observed_frequency_gains[~np.isnan(observed_frequency_gains).any(axis=1)]):
+            ax.plot(freqs, np.log10(np.abs(block_gain)), label=f"Block {i}")
+        ax.plot(freqs, np.log10(np.abs(avg_gain)), label="Mean")
+        ax.set_title("Frequency Gain Plot (in dB)")
+        ax.set_xlabel("Frequency (Hz)")
+        ax.set_ylabel("Gain (dB)")
+        ax.legend()
+
+    adjusted_data_qpsk_symbols = qpsk.wiener_filter(
+        qpsk.decode_ofdm_symbol(recv_ofdm_symbols[1::2, :]), avg_gain, avg_snr
+    )
+
+    # TODO: remove
+    rng = np.random.default_rng(seed=42)
+    sent_data = bytes(rng.integers(256, size=BYTES_BLOCK_LENGTH * 200, dtype=np.uint8))
+    data_qpsk_values = np.reshape(
+        qpsk.qpsk_encode(np.unpackbits(np.frombuffer(sent_data, dtype=np.uint8))), (-1, DATA_BLOCK_LENGTH)
+    )[:10, :]
+
+    if plot:
+        fig, axs = plt.subplots(2, 5)
+        for sent_vals, recv_vals, ax in zip(data_qpsk_values, adjusted_data_qpsk_symbols, axs.flatten(), strict=True):
+            positive_real_mask = np.real(sent_vals) > 0
+            positive_imag_mask = np.imag(sent_vals) > 0
+            mask_00 = positive_real_mask & positive_imag_mask
+            mask_01 = (~positive_real_mask) & positive_imag_mask
+            mask_11 = (~positive_real_mask) & (~positive_imag_mask)
+            mask_10 = positive_real_mask & (~positive_imag_mask)
+
+            for mask, bits in ((mask_00, "00"), (mask_01, "01"), (mask_10, "10"), (mask_11, "11")):
+                ax.scatter(np.real(recv_vals[mask]), np.imag(recv_vals[mask]), label=bits)
+
+            ax.legend()
+
 
 if __name__ == "__main__":
     rng = np.random.default_rng(seed=42)
     data = bytes(rng.integers(256, size=BYTES_BLOCK_LENGTH * 200, dtype=np.uint8))
-    encode_data(data, "signal.wav")
+    signal = encode_data(data)
+    wav.generate_wav("signal.wav", signal)
+    # recv_signal = wav.read_wav("2025-05-28_LT6.wav")
+    # decode_data(recv_signal, False)
+    # plt.show()
