@@ -414,7 +414,7 @@ class code:
         Kp = Np - Mp
         K = Kp*z # length of information
         if len(info) != K:
-            raise NameError('information word length not compatible with proto and z')
+            raise ValueError(f"Information word length not compatible with proto and z, expected {K}, got {len(info)}")
     
         # x is the codeword, composed of K bits information and N-K bits parity
         x = np.zeros(N, dtype=int)

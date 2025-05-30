@@ -1,5 +1,15 @@
 import numpy as np
 import numpy.typing as npt
+from modem.ldpc import code
+from modem.estimate import find_LLRs, estimate_noise_var
+import matplotlib.pyplot as plt
+import scipy.signal
+from modem import qpsk, chirp, wav
+import sounddevice as sd
+import scipy.io.wavfile as wav
+DURATION = 15  # Duration of the recording in seconds
+FS = 48000 
+import os
 
 from modem.constants import (
     CYCLIC_PREFIX_LENGTH,
@@ -9,7 +19,19 @@ from modem.constants import (
     POSITIVE_LOWER_BIN,
     POSITIVE_UPPER_BIN,
     DATA_BLOCK_LENGTH,
+    ldpc_standard,
+    ldpc_rate,
+    ldpc_z_val,
+    ldpc_ptype,
 )
+
+
+ldpc_code = code(standard=ldpc_standard, rate=ldpc_rate, z=ldpc_z_val, ptype=ldpc_ptype)
+proto = ldpc_code.assign_proto()
+pcmat = ldpc_code.pcmat()
+num_variable_nodes = ldpc_code.Nv
+print(num_variable_nodes)
+
 
 def qpsk_encode(bits: npt.NDArray[np.bool]) -> npt.NDArray[np.complex128]:
     """Encode bytes into constellation symbols
@@ -87,36 +109,6 @@ def encode_ofdm_symbol(
     np.testing.assert_allclose(np.imag(x), np.zeros_like(x), atol=1e-14)
 
     return np.real(x)
-
-    chunk_size = QPSK_BLOCK_LENGTH_DATA
-    qpsk_values_chunks = [qpsk_values[i:i + chunk_size] for i in range(0, len(qpsk_values), chunk_size)]
-    padded_chunks = []
-    for chunk in qpsk_values_chunks:
-        qpsk_blocks = np.pad(chunk, 
-        (POSITIVE_LOWER_BIN, QPSK_BLOCK_LENGTH -len(chunk) - POSITIVE_LOWER_BIN), 
-        constant_values=0 )
-
-        padded_chunks.append(qpsk_blocks)
-
-    qpsk_blocks = np.array(padded_chunks)
-    qpsk_blocks = qpsk_blocks.reshape(-1, QPSK_BLOCK_LENGTH)
-
-    conj_blocks = np.conj(np.fliplr(qpsk_blocks))
-    X = np.hstack([zero_col, qpsk_blocks, zero_col, conj_blocks])
-    for i in range(X.shape[0]):
-        for k in range(1, int(len(X[i]) // 2 + 1)):
-            assert X[i][k] == np.conjugate(X[i][len(X[i]) - k]), (
-                f"QPSK symbol {k} is not conjugate to QPSK symbol {len(X) - k - 1}"
-            )
-            assert np.isreal(X[i][0])
-            assert np.isreal(X[i][len(X) // 2]) 
-    x = np.fft.ifft(X, n=FFT_BLOCK_LENGTH)
-    signal = np.hstack([x[:, -CYCLIC_PREFIX_LENGTH:], x]).reshape(-1)
-    np.testing.assert_allclose(np.imag(signal), np.zeros_like(signal), atol=1e-14)
-    
-    print("passes test")
-    return np.real(signal), X
-
 # encode_ofdm_symbol(random_symbols)
 
 def decode_ofdm_symbol(
@@ -134,17 +126,26 @@ def wiener_filter(y: npt.NDArray[np.complex128], h: npt.NDArray[np.complex128], 
     x = (y * np.conj(h)) / (np.abs(h) ** 2 + (1 / snr))
     return x
 
-#####################test the encode qpsk function
-
+########################################
+"""Implement transmitter and reciever
 """
 
-# Define the QPSK constellation symbols
-qpsk_symbols = np.array([1+1j, 1-1j, -1-1j, -1+1j], dtype=np.complex128)
+def record_audio(duration, FS):
+    print("Recording...")
+    audio = sd.rec(int((duration) * FS), samplerate=FS, channels=2, dtype='int16') # channels = 2 might need changing
+    sd.wait()  # Wait until the recording is finished
+    print("Recording finished.")
+    return audio
 
-# Generate a random array of 12,000 QPSK symbols
-random_qpsk_symbols = np.random.choice(qpsk_symbols, size=12000)
+# Function to save audio to a WAV file
+def save_audio(filename, audio, FS):
+    wav.write(filename, FS, audio)
+    print(f"Audio saved to {filename}")
 
-# Test the encode_ofdm_symbol function
-signal, X = encode_ofdm_symbol(random_qpsk_symbols)
+def recieve_signal():
+    output_file = "testgroup4.wav"  # Name of the output WAV file
+    recorded_audio = record_audio(DURATION, FS)
+    save_audio(output_file, recorded_audio, FS)
+    _,  recieved_signal = scipy.io.wavfile.read("testgroup4.wav")
 
-"""
+    return recieved_signal

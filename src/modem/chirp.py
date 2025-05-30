@@ -3,7 +3,7 @@ import numpy as np
 import numpy.typing as npt
 import scipy.signal
 
-from .constants import FS
+from .constants import FS, OFDM_SYMBOL_LENGTH
 
 CHIRP_DURATION = 1.0
 CHIRP_F0 = 500
@@ -18,8 +18,8 @@ START_CHIRP = scipy.signal.chirp(CHIRP_TIMES, f0=CHIRP_F0, f1=CHIRP_F1, t1=CHIRP
 END_CHIRP = scipy.signal.chirp(CHIRP_TIMES, f0=CHIRP_F1, f1=CHIRP_F0, t1=CHIRP_DURATION, method="linear")
 
 
-def synchronise(recv_signal: npt.NDArray[np.complex64], expected_signal_len: int, plot_correlations: bool = False):
-    """Synchronise received signal given expected_signal_len between start and end chirps.
+def synchronise(recv_signal: npt.NDArray[np.complex64], plot_correlations: bool = False):
+    """Synchronise received signal assuming a whole number of OFDM_SYMBOL_LENGTH between start and end chirps.
     Returns aligned signal with start and end chirp included."""
     start_correlation = scipy.signal.correlate(recv_signal, START_CHIRP, mode="valid")
     lags = scipy.signal.correlation_lags(recv_signal.size, START_CHIRP.size, mode="valid")
@@ -30,8 +30,11 @@ def synchronise(recv_signal: npt.NDArray[np.complex64], expected_signal_len: int
     end_lag = lags[np.argmax(np.abs(end_correlation))]
 
     difference = end_lag - start_lag
-    expected_difference = expected_signal_len + len(END_CHIRP)
-    print(f"{start_lag = }, {end_lag = }, {difference = }, {expected_difference = }")
+    number_of_blocks = round((difference - len(START_CHIRP)) / OFDM_SYMBOL_LENGTH)
+    expected_difference = number_of_blocks * OFDM_SYMBOL_LENGTH + len(START_CHIRP)
+    error = difference - expected_difference
+    print(f"Assumed {number_of_blocks} OFDM blocks sent")
+    print(f"Synchronisation was {error} samples too long")
 
     if plot_correlations:
         fig, ax = plt.subplots()
@@ -45,4 +48,4 @@ def synchronise(recv_signal: npt.NDArray[np.complex64], expected_signal_len: int
         ax.set_xlabel("Time (seconds)")
 
     aligned_recv_signal = np.roll(recv_signal, -start_lag)
-    return aligned_recv_signal[: expected_signal_len + 2 * END_CHIRP.size]
+    return aligned_recv_signal[: expected_difference +  END_CHIRP.size]
