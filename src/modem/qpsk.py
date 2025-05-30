@@ -141,7 +141,8 @@ def save_audio(filename, audio, fs):
     print(f"Audio saved to {filename}")
 
 
-output_file = "testgroup4.wav"  # Name of the output WAV file
-recorded_audio = record_audio(DURATION, FS)
-save_audio(output_file, recorded_audio, FS)
-_,  sig = scipy.io.wavfile.read("testgroup4.wav")
+if __name__ == "__main__":
+    output_file = "testgroup4.wav"  # Name of the output WAV file
+    recorded_audio = record_audio(DURATION, FS)
+    save_audio(output_file, recorded_audio, FS)
+    _,  sig = scipy.io.wavfile.read("testgroup4.wav")
