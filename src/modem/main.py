@@ -30,7 +30,10 @@ pcmat = ldpc_code.pcmat()
 
 def encode_data(data: bytes) -> npt.NDArray[np.float64]:
     data_bits = np.unpackbits(np.frombuffer(data, dtype=np.uint8))
-    data_qpsk_values = qpsk.qpsk_encode(data_bits.flatten())
+    pad_len = int((-len(data_bits)) % LDPC_INPUT_LENGTH)
+    data_bits = np.pad(data_bits, (0, pad_len), constant_values=0).reshape((-1, LDPC_INPUT_LENGTH))
+    coded_data_bits = np.vstack([ldpc_code.encode(ldpc_block) for ldpc_block in data_bits])
+    data_qpsk_values = qpsk.qpsk_encode(coded_data_bits.flatten())
     data_ofdm_symbols = qpsk.encode_ofdm_symbol(data_qpsk_values)
 
     num_ofdm_blocks = data_ofdm_symbols.shape[0]
