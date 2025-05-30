@@ -41,7 +41,7 @@ def estimate_noise_var(received_symbols: npt.NDArray[np.complex128],
     #noise N = Y −ckX for each observation and averaging its squared real and imaginary
     #parts.
     noise = received_symbols - (channel_gains * expected_symbols)
-    noise_var = np.mean(np.square(np.real(noise))) + np.mean(np.square(np.imag(noise)))
+    noise_var = (np.mean(np.square(np.real(noise))) + np.mean(np.square(np.imag(noise))))/2
     return noise_var
         
 def find_LLRs(

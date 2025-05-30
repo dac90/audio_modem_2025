@@ -29,6 +29,8 @@ from modem.constants import (
 ldpc_code = code(standard=ldpc_standard, rate=ldpc_rate, z=ldpc_z_val, ptype=ldpc_ptype)
 proto = ldpc_code.assign_proto()
 pcmat = ldpc_code.pcmat()
+num_variable_nodes = ldpc_code.Nv
+print(num_variable_nodes)
 
 
 def qpsk_encode(bits: npt.NDArray[np.bool]) -> npt.NDArray[np.complex128]:
@@ -128,21 +130,22 @@ def wiener_filter(y: npt.NDArray[np.complex128], h: npt.NDArray[np.complex128], 
 """Implement transmitter and reciever
 """
 
-def record_audio(duration, fs):
+def record_audio(duration, FS):
     print("Recording...")
-    audio = sd.rec(int((duration) * fs), samplerate=fs, channels=2, dtype='int16')
+    audio = sd.rec(int((duration) * FS), samplerate=FS, channels=2, dtype='int16') # channels = 2 might need changing
     sd.wait()  # Wait until the recording is finished
     print("Recording finished.")
     return audio
 
 # Function to save audio to a WAV file
-def save_audio(filename, audio, fs):
-    wav.write(filename, fs, audio)
+def save_audio(filename, audio, FS):
+    wav.write(filename, FS, audio)
     print(f"Audio saved to {filename}")
 
-
-if __name__ == "__main__":
+def recieve_signal():
     output_file = "testgroup4.wav"  # Name of the output WAV file
     recorded_audio = record_audio(DURATION, FS)
     save_audio(output_file, recorded_audio, FS)
-    _,  sig = scipy.io.wavfile.read("testgroup4.wav")
+    _,  recieved_signal = scipy.io.wavfile.read("testgroup4.wav")
+
+    return recieved_signal
