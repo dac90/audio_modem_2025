@@ -7,7 +7,7 @@ from .constants import FS
 
 CHIRP_DURATION = 1.0
 CHIRP_F0 = 500
-CHIRP_F1 = 4000
+CHIRP_F1 = 16000
 
 CHIRP_TIMES = np.linspace(0, CHIRP_DURATION, int(CHIRP_DURATION * FS), endpoint=False)
 
