@@ -1,5 +1,5 @@
 import math
-
+from modem.ldpc import code
 # Sampling rate
 FS = 48000
 
@@ -31,5 +31,6 @@ ldpc_standard = '802.11n'
 ldpc_rate = '1/2'
 ldpc_z_val = 81
 ldpc_ptype = 'A'
-LDPC_INPUT_LENGTH = 972
-LDPC_OUTPUT_LENGTH = 972 * 2  # Rate 1/2
+ldpc_code = code(standard=ldpc_standard, rate=ldpc_rate, z=ldpc_z_val, ptype=ldpc_ptype)
+LDPC_INPUT_LENGTH = ldpc_code.K #972 currently
+LDPC_OUTPUT_LENGTH = ldpc_code.Nv #972 * 2 = 1944  # Rate 1/2
