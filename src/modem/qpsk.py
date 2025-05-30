@@ -1,8 +1,15 @@
 import numpy as np
 import numpy.typing as npt
 from modem.ldpc import code
-import numpy as np
 from modem.estimate import find_LLRs, estimate_noise_var
+import matplotlib.pyplot as plt
+import scipy.signal
+from modem import qpsk, chirp, wav
+import sounddevice as sd
+import scipy.io.wavfile as wav
+DURATION = 15  # Duration of the recording in seconds
+FS = 48000 
+import os
 
 from modem.constants import (
     CYCLIC_PREFIX_LENGTH,
@@ -117,27 +124,24 @@ def wiener_filter(y: npt.NDArray[np.complex128], h: npt.NDArray[np.complex128], 
     x = (y * np.conj(h)) / (np.abs(h) ** 2 + (1 / snr))
     return x
 
+########################################
+"""Implement transmitter and reciever
+"""
 
-def transmit(input_bits: npt.NDArray[np.bool]) -> npt.NDArray[np.float64]:
-        # LDPC Encoding
-    encoded_bits = ldpc_code.encode(input_bits)
+def record_audio(duration, fs):
+    print("Recording...")
+    audio = sd.rec(int((duration) * fs), samplerate=fs, channels=2, dtype='int16')
+    sd.wait()  # Wait until the recording is finished
+    print("Recording finished.")
+    return audio
 
-    # QPSK Modulation
-    qpsk_symbols = qpsk_encode(encoded_bits)
+# Function to save audio to a WAV file
+def save_audio(filename, audio, fs):
+    wav.write(filename, fs, audio)
+    print(f"Audio saved to {filename}")
 
-    # OFDM Encoding
-    ofdm_symbols = encode_ofdm_symbol(qpsk_symbols)
 
-    return ofdm_symbols
-
-def recieve(received_ofdm_signal: npt.NDArray[np.float64]) -> npt.NDArray[np.bool]:
-    received_qpsk_symbols = decode_ofdm_symbol(received_ofdm_signal)
-
-    # QPSK Demodulation
-    demodulated_bytes = qpsk_decode(received_qpsk_symbols)
-    demodulated_bits = np.unpackbits(np.frombuffer(demodulated_bytes, dtype=np.uint8))
-
-    # LDPC Decoding
-    decoded_bits, _ = ldpc_code.decode(demodulated_bits, dectype='sumprod2', corr_factor=0.7)
-
-    return decoded_bits
+output_file = "testgroup4.wav"  # Name of the output WAV file
+recorded_audio = record_audio(DURATION, FS)
+save_audio(output_file, recorded_audio, FS)
+_,  sig = scipy.io.wavfile.read("testgroup4.wav")
