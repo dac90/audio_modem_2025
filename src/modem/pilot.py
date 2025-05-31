@@ -25,3 +25,12 @@ def interleave_pilot_blocks(data_blocks, pilot_blocks):
                     result.append(data_blocks[data_index])
                     data_index += 1
     return np.array(result)
+
+def extract_pilot_blocks(joint_blocks: np.ndarray):
+    step = 1 + DATA_PER_PILOT
+    pilot_mask = np.arange(len(joint_blocks)) % step == 0
+
+    pilot_blocks = joint_blocks[pilot_mask]
+    data_blocks = joint_blocks[~pilot_mask]
+
+    return data_blocks, pilot_blocks
