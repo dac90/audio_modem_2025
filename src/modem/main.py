@@ -121,21 +121,17 @@ def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray
 
     decoded_llr_real = [ldpc_code.decode(chunk, ldpc_dec_type, corr_factor)[0] for chunk in adjusted_llr_real]
     decoded_llr_imag = [ldpc_code.decode(chunk, ldpc_dec_type, corr_factor)[0] for chunk in adjusted_llr_imag]
+    # decode 1 if it is greater than 0 else decode 0
+    decoded_llr_real = np.array(decoded_llr_real)
+    decoded_llr_imag = np.array(decoded_llr_imag)
+    decoded_llr_real = np.where(decoded_llr_real > 0, 1, 0)
+    decoded_llr_imag = np.where(decoded_llr_imag > 0, 1, 0)
 
     # Combine the decoded real and imaginary parts
     decoded_llrs = np.column_stack((decoded_llr_real, decoded_llr_imag)).flatten()
     ######################################
+    print(f"Decoded LLRs: {decoded_llrs[0:10]} values")
     
-
-    
-    """    flattened_qpsk_symbols = adjusted_data_qpsk_symbols.flatten()
-    adjusted_qpsk_symbols_chunks = [adjusted_data_qpsk_symbols[i:i + LDPC_OUTPUT_LENGTH] for i in range(0, len(recv_ofdm_symbols), LDPC_OUTPUT_LENGTH)]
-    if adjusted_qpsk_symbols_chunks[-1].size < LDPC_OUTPUT_LENGTH:
-        adjusted_qpsk_symbols_chunks.pop() # TO DO: Is this right - Remove last chunk if it is not full or should pad until full?
-    decoded_chunks = [ldpc_code.decode(chunk, ldpc_dec_type, corr_factor)[0] for chunk in recv_ofdm_symbols_chunks] # not sure if we should input the chunk directly into LDPC Jossy needs to confirm.
-    decoded_flattened = np.concatenate(decoded_chunks) # 
-    decoded_symbols = decoded_flattened.reshape(recv_ofdm_symbols.shape) #not sure about this shaping."""
-
     # TODO: remove
     rng = np.random.default_rng(seed=42)
     sent_data = bytes(rng.integers(256, size=BYTES_BLOCK_LENGTH * 200, dtype=np.uint8))
@@ -174,11 +170,10 @@ if __name__ == "__main__":
     #data = bytes(rng.integers(256, size=BYTES_BLOCK_LENGTH * 200, dtype=np.uint8))
     #signal = encode_data(data)
     #wav.generate_wav("signal.wav", signal)
-
     def generate_test_data():
     # Generate random binary data
         rng = np.random.default_rng(seed=42)  # Use a fixed seed for reproducibility
-        data = bytes(rng.integers(0, 256, size=BYTES_BLOCK_LENGTH * 10, dtype=np.uint8))  # Example: 10 blocks of data
+        data = bytes(rng.integers(0, 256, size=BYTES_BLOCK_LENGTH, dtype=np.uint8))  # Example: 10 blocks of data
 
         # Encode the data using the encode_data function
         data_bits = np.unpackbits(np.frombuffer(data, dtype=np.uint8))
@@ -191,6 +186,7 @@ if __name__ == "__main__":
 
 # Generate and save the test dataset
     data, data_qpsk_values = generate_test_data()
+    print("1...")
     recv_signal = wav.read_wav("2025-05-28_LT6.wav")
     decode_data(data_qpsk_values, recv_signal, False)
     plt.show()
