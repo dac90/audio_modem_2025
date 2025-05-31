@@ -106,6 +106,9 @@ def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray
     data_qpsk_values = data_qpsk_values.reshape(-1, DATA_BLOCK_LENGTH)
     data_qpsk_values = data_qpsk_values[1::2,:]
 
+    print(f"Adjusted data QPSK symbols shape: {adjusted_data_qpsk_symbols.shape}")
+    print(f"Data QPSK values shape: {data_qpsk_values.shape}")
+    print(f"average gain shape: {avg_gain.shape}")
     noise_var = estimate.estimate_noise_var(adjusted_data_qpsk_symbols,avg_gain,data_qpsk_values)
     llr_real, llr_imag = estimate.find_LLRs(adjusted_data_qpsk_symbols, avg_gain, noise_var)
     llr_real_flat = llr_real.flatten()
@@ -128,9 +131,10 @@ def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray
     decoded_llr_imag = np.where(decoded_llr_imag > 0, 1, 0)
 
     # Combine the decoded real and imaginary parts
-    decoded_llrs = np.column_stack((decoded_llr_real, decoded_llr_imag)).flatten()
+    decoded_bits = np.column_stack((decoded_llr_real, decoded_llr_imag)).flatten()
     ######################################
-    print(f"Decoded LLRs: {decoded_llrs[0:10]} values")
+    print(f"Decoded LLRs: {decoded_bits[0:10]} values")
+    print(f"Decoded LLRs shape: {decoded_bits.shape}")
     
     # TODO: remove
     rng = np.random.default_rng(seed=42)
@@ -182,11 +186,13 @@ if __name__ == "__main__":
         coded_data_bits = np.vstack([ldpc_code.encode(ldpc_block) for ldpc_block in data_bits])
         data_qpsk_values = qpsk.qpsk_encode(coded_data_bits.flatten())
 
-        return data, data_qpsk_values
+        return data, data_qpsk_values, coded_data_bits
 
 # Generate and save the test dataset
-    data, data_qpsk_values = generate_test_data()
+    data, data_qpsk_values, coded_data_bits = generate_test_data()
     print("1...")
+    
     recv_signal = wav.read_wav("2025-05-28_LT6.wav")
     decode_data(data_qpsk_values, recv_signal, False)
+    print(f"shape of encoded_data_bits: {coded_data_bits.shape}")
     plt.show()
