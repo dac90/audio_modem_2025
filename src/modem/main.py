@@ -2,8 +2,8 @@ import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
 import scipy.signal
-
 from modem import chirp, pilot, qpsk, wav, estimate
+
 from modem.constants import (
     BYTES_BLOCK_LENGTH,
     DATA_PER_PILOT,
@@ -23,6 +23,7 @@ from modem.constants import (
 )  ###
 from modem.chirp import synchronise  ###-
 from modem.ldpc import code  ###
+
 
 
 ### = Ido's addition
@@ -50,7 +51,7 @@ def encode_data(data: bytes) -> npt.NDArray[np.float64]:
     return signal
 
 
-def decode_data(signal: npt.NDArray[np.float64], plot: bool = False) -> None:
+def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray[np.float64], plot: bool = False) -> None:
     aligned_signal = chirp.synchronise(signal, plot_correlations=plot)
     recv_ofdm_symbols = np.reshape(
         aligned_signal[chirp.START_CHIRP.size : -chirp.END_CHIRP.size], (-1, OFDM_SYMBOL_LENGTH)
@@ -68,15 +69,7 @@ def decode_data(signal: npt.NDArray[np.float64], plot: bool = False) -> None:
 
     num_ofdm_symbols = recv_ofdm_symbols.shape[0]
     length_ofdm_symbol = recv_ofdm_symbols.shape[1]
-    ### LDPC implementation
-    flattened_recv_ofdm_symbols = recv_ofdm_symbols.flatten()
-    recv_ofdm_symbols_chunks = [flattened_recv_ofdm_symbols[i:i + LDPC_OUTPUT_LENGTH] for i in range(0, len(recv_ofdm_symbols), LDPC_OUTPUT_LENGTH)]
-    if recv_ofdm_symbols_chunks[-1].size < LDPC_OUTPUT_LENGTH:
-        recv_ofdm_symbols_chunks.pop() # TO DO: Is this right - Remove last chunk if it is not full or should pad until full?
-    decoded_chunks = [ldpc_code.decode(chunk, ldpc_dec_type, corr_factor)[0] for chunk in recv_ofdm_symbols_chunks] # not sure if we should input the chunk directly into LDPC Jossy needs to confirm.
-    decoded_flattened = np.concatenate(decoded_chunks) # 
-    decoded_symbols = decoded_flattened.reshape(recv_ofdm_symbols.shape) #not sure about this shaping.
-    ### LDPC implementaiton end
+    
 
     assert num_ofdm_symbols % 2 == 1, f"Expected an odd number of total symbols"
     num_data_symbols = num_ofdm_symbols // 2
@@ -92,6 +85,8 @@ def decode_data(signal: npt.NDArray[np.float64], plot: bool = False) -> None:
     snr_estimates = estimate.estimate_snr(known_qpsk_symbols, qpsk.decode_ofdm_symbol(recv_ofdm_symbols), avg_gain)
     avg_snr = np.nanmean(snr_estimates, axis=0)
 
+    
+
     if plot:
         fig, ax = plt.subplots()
         freqs = np.linspace(LOWER_FREQUENCY_BOUND, UPPER_FREQUENCY_BOUND, DATA_BLOCK_LENGTH, endpoint=False)
@@ -106,6 +101,40 @@ def decode_data(signal: npt.NDArray[np.float64], plot: bool = False) -> None:
     adjusted_data_qpsk_symbols = qpsk.wiener_filter(
         qpsk.decode_ofdm_symbol(recv_ofdm_symbols[1::2, :]), avg_gain, avg_snr
     )
+    #################################################
+    #reshpae into size 21 x1366
+    data_qpsk_values = data_qpsk_values.reshape(-1, DATA_BLOCK_LENGTH)
+    data_qpsk_values = data_qpsk_values[1::2,:]
+
+    noise_var = estimate.estimate_noise_var(adjusted_data_qpsk_symbols,avg_gain,data_qpsk_values)
+    llr_real, llr_imag = estimate.find_LLRs(adjusted_data_qpsk_symbols, avg_gain, noise_var)
+    llr_real_flat = llr_real.flatten()
+    llr_imag_flat = llr_imag.flatten()
+
+
+    adjusted_llr_real = [llr_real_flat[i:i+LDPC_OUTPUT_LENGTH] for i in range(0, len(llr_real_flat), LDPC_OUTPUT_LENGTH)]
+    adjusted_llr_imag = [llr_imag_flat[i:i+LDPC_OUTPUT_LENGTH] for i in range(0, len(llr_imag_flat), LDPC_OUTPUT_LENGTH)]
+    if adjusted_llr_real[-1].size < LDPC_OUTPUT_LENGTH:
+        adjusted_llr_real.pop()
+    if adjusted_llr_imag[-1].size < LDPC_OUTPUT_LENGTH:
+        adjusted_llr_imag.pop()
+
+    decoded_llr_real = [ldpc_code.decode(chunk, ldpc_dec_type, corr_factor)[0] for chunk in adjusted_llr_real]
+    decoded_llr_imag = [ldpc_code.decode(chunk, ldpc_dec_type, corr_factor)[0] for chunk in adjusted_llr_imag]
+
+    # Combine the decoded real and imaginary parts
+    decoded_llrs = np.column_stack((decoded_llr_real, decoded_llr_imag)).flatten()
+    ######################################
+    
+
+    
+    """    flattened_qpsk_symbols = adjusted_data_qpsk_symbols.flatten()
+    adjusted_qpsk_symbols_chunks = [adjusted_data_qpsk_symbols[i:i + LDPC_OUTPUT_LENGTH] for i in range(0, len(recv_ofdm_symbols), LDPC_OUTPUT_LENGTH)]
+    if adjusted_qpsk_symbols_chunks[-1].size < LDPC_OUTPUT_LENGTH:
+        adjusted_qpsk_symbols_chunks.pop() # TO DO: Is this right - Remove last chunk if it is not full or should pad until full?
+    decoded_chunks = [ldpc_code.decode(chunk, ldpc_dec_type, corr_factor)[0] for chunk in recv_ofdm_symbols_chunks] # not sure if we should input the chunk directly into LDPC Jossy needs to confirm.
+    decoded_flattened = np.concatenate(decoded_chunks) # 
+    decoded_symbols = decoded_flattened.reshape(recv_ofdm_symbols.shape) #not sure about this shaping."""
 
     # TODO: remove
     rng = np.random.default_rng(seed=42)
@@ -113,6 +142,7 @@ def decode_data(signal: npt.NDArray[np.float64], plot: bool = False) -> None:
     data_qpsk_values = np.reshape(
         qpsk.qpsk_encode(np.unpackbits(np.frombuffer(sent_data, dtype=np.uint8))), (-1, DATA_BLOCK_LENGTH)
     )[:10, :]
+
 
     if plot:
         fig, axs = plt.subplots(2, 5)
@@ -130,11 +160,37 @@ def decode_data(signal: npt.NDArray[np.float64], plot: bool = False) -> None:
             ax.legend()
 
 
+
+
+
+
+
+
+
+
+
 if __name__ == "__main__":
-    rng = np.random.default_rng(seed=42)
-    data = bytes(rng.integers(256, size=BYTES_BLOCK_LENGTH * 200, dtype=np.uint8))
-    signal = encode_data(data)
-    wav.generate_wav("signal.wav", signal)
-    # recv_signal = wav.read_wav("2025-05-28_LT6.wav")
-    # decode_data(recv_signal, False)
-    # plt.show()
+    #rng = np.random.default_rng(seed=42)
+    #data = bytes(rng.integers(256, size=BYTES_BLOCK_LENGTH * 200, dtype=np.uint8))
+    #signal = encode_data(data)
+    #wav.generate_wav("signal.wav", signal)
+
+    def generate_test_data():
+    # Generate random binary data
+        rng = np.random.default_rng(seed=42)  # Use a fixed seed for reproducibility
+        data = bytes(rng.integers(0, 256, size=BYTES_BLOCK_LENGTH * 10, dtype=np.uint8))  # Example: 10 blocks of data
+
+        # Encode the data using the encode_data function
+        data_bits = np.unpackbits(np.frombuffer(data, dtype=np.uint8))
+        pad_len = int((-len(data_bits)) % LDPC_INPUT_LENGTH)
+        data_bits = np.pad(data_bits, (0, pad_len), constant_values=0).reshape((-1, LDPC_INPUT_LENGTH))
+        coded_data_bits = np.vstack([ldpc_code.encode(ldpc_block) for ldpc_block in data_bits])
+        data_qpsk_values = qpsk.qpsk_encode(coded_data_bits.flatten())
+
+        return data, data_qpsk_values
+
+# Generate and save the test dataset
+    data, data_qpsk_values = generate_test_data()
+    recv_signal = wav.read_wav("2025-05-28_LT6.wav")
+    decode_data(data_qpsk_values, recv_signal, False)
+    plt.show()

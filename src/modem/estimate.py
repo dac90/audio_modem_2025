@@ -40,6 +40,7 @@ def estimate_noise_var(received_symbols: npt.NDArray[np.complex128],
     # estimate the noise variance by computing the complex
     #noise N = Y −ckX for each observation and averaging its squared real and imaginary
     #parts.
+    #print shape of each input
     noise = received_symbols - (channel_gains * expected_symbols)
     noise_var = (np.mean(np.square(np.real(noise))) + np.mean(np.square(np.imag(noise))))/2
     return noise_var
@@ -56,9 +57,8 @@ def find_LLRs(
     imag_equalised_received = np.imag(equalised_received)
     channel_gains_conjugate = np.conjugate(channel_gains)
     # Calculate the LLRs
-    llrs_real = (np.sqrt(2)*channel_gains_conjugate*channel_gains*real_equalised_received / (noise_var)).astype(np.float64)
-
-    llrs_imag = (np.sqrt(2)*channel_gains_conjugate*channel_gains*imag_equalised_received / (noise_var)).astype(np.float64)
+    llrs_real = np.real(np.sqrt(2) * channel_gains_conjugate * channel_gains * real_equalised_received / noise_var).astype(np.float64)
+    llrs_imag = np.real(np.sqrt(2) * channel_gains_conjugate * channel_gains * imag_equalised_received / noise_var).astype(np.float64)
 
     return llrs_imag, llrs_real
 

@@ -3,7 +3,7 @@ import numpy as np
 import numpy.typing as npt
 import scipy.signal
 
-from .constants import FS, OFDM_SYMBOL_LENGTH
+from modem.constants import FS, OFDM_SYMBOL_LENGTH
 
 CHIRP_DURATION = 1.0
 CHIRP_F0 = 500
@@ -21,6 +21,7 @@ END_CHIRP = scipy.signal.chirp(CHIRP_TIMES, f0=CHIRP_F1, f1=CHIRP_F0, t1=CHIRP_D
 def synchronise(recv_signal: npt.NDArray[np.complex64], plot_correlations: bool = False):
     """Synchronise received signal assuming a whole number of OFDM_SYMBOL_LENGTH between start and end chirps.
     Returns aligned signal with start and end chirp included."""
+    recv_signal = recv_signal.flatten() ###
     start_correlation = scipy.signal.correlate(recv_signal, START_CHIRP, mode="valid")
     lags = scipy.signal.correlation_lags(recv_signal.size, START_CHIRP.size, mode="valid")
     start_lag = lags[np.argmax(np.abs(start_correlation))]
