@@ -55,7 +55,7 @@ def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray
     aligned_signal = chirp.synchronise(signal, plot_correlations=plot)
     recv_ofdm_symbols = np.reshape(
         aligned_signal[chirp.START_CHIRP.size : -chirp.END_CHIRP.size], (-1, OFDM_SYMBOL_LENGTH)
-    )[:21, :]
+    )
 
     if plot:
         fig, ax = plt.subplots()
@@ -141,7 +141,7 @@ def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray
     sent_data = bytes(rng.integers(256, size=BYTES_BLOCK_LENGTH * 200, dtype=np.uint8))
     data_qpsk_values = np.reshape(
         qpsk.qpsk_encode(np.unpackbits(np.frombuffer(sent_data, dtype=np.uint8))), (-1, DATA_BLOCK_LENGTH)
-    )[:10, :]
+    )
 
 
     if plot:
