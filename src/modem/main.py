@@ -22,7 +22,7 @@ from modem.constants import (
     LDPC_OUTPUT_LENGTH,
 )  ###
 from modem.chirp import synchronise  ###-
-from modem.ldpc import code  ###
+from ldpc_jossy.py.ldpc import code  ###
 
 
 

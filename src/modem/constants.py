@@ -1,5 +1,5 @@
 import math
-from modem.ldpc import code
+from ldpc_jossy.py.ldpc import code
 # Sampling rate
 FS = 48000
 

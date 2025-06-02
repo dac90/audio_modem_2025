@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "ldpc-jossy",
     "matplotlib>=3.10.3",
     "numpy>=2.2.6",
     "scipy>=1.15.3",
@@ -42,3 +43,6 @@ quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
+
+[tool.uv.sources]
+ldpc-jossy = { git = "https://github.com/apple-phi/ldpc_jossy" }
