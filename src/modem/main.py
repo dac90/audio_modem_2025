@@ -101,52 +101,14 @@ def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray
     adjusted_data_qpsk_symbols = qpsk.wiener_filter(
         qpsk.decode_ofdm_symbol(recv_ofdm_symbols[1::2, :]), avg_gain, avg_snr
     )
-    #################################################
-    #reshpae into size 21 x1366
+    # Without Wiener filter, just using ratio
+    # adjusted_data_qpsk_symbols = qpsk.decode_ofdm_symbol(recv_ofdm_symbols[1::2, :]) / avg_gain
+
     data_qpsk_values = data_qpsk_values.reshape(-1, DATA_BLOCK_LENGTH)
-    data_qpsk_values = data_qpsk_values[1::2,:]
-
-    print(f"Adjusted data QPSK symbols shape: {adjusted_data_qpsk_symbols.shape}")
-    print(f"Data QPSK values shape: {data_qpsk_values.shape}")
-    print(f"average gain shape: {avg_gain.shape}")
-    noise_var = estimate.estimate_noise_var(adjusted_data_qpsk_symbols,avg_gain,data_qpsk_values)
-    llr_real, llr_imag = estimate.find_LLRs(adjusted_data_qpsk_symbols, avg_gain, noise_var)
-    llr_real_flat = llr_real.flatten()
-    llr_imag_flat = llr_imag.flatten()
-
-
-    adjusted_llr_real = [llr_real_flat[i:i+LDPC_OUTPUT_LENGTH] for i in range(0, len(llr_real_flat), LDPC_OUTPUT_LENGTH)]
-    adjusted_llr_imag = [llr_imag_flat[i:i+LDPC_OUTPUT_LENGTH] for i in range(0, len(llr_imag_flat), LDPC_OUTPUT_LENGTH)]
-    if adjusted_llr_real[-1].size < LDPC_OUTPUT_LENGTH:
-        adjusted_llr_real.pop()
-    if adjusted_llr_imag[-1].size < LDPC_OUTPUT_LENGTH:
-        adjusted_llr_imag.pop()
-
-    decoded_llr_real = [ldpc_code.decode(chunk, ldpc_dec_type, corr_factor)[0] for chunk in adjusted_llr_real]
-    decoded_llr_imag = [ldpc_code.decode(chunk, ldpc_dec_type, corr_factor)[0] for chunk in adjusted_llr_imag]
-    # decode 1 if it is greater than 0 else decode 0
-    decoded_llr_real = np.array(decoded_llr_real)
-    decoded_llr_imag = np.array(decoded_llr_imag)
-    decoded_llr_real = np.where(decoded_llr_real > 0, 1, 0)
-    decoded_llr_imag = np.where(decoded_llr_imag > 0, 1, 0)
-
-    # Combine the decoded real and imaginary parts
-    decoded_bits = np.column_stack((decoded_llr_real, decoded_llr_imag)).flatten()
-    ######################################
-    print(f"Decoded LLRs: {decoded_bits[0:10]} values")
-    print(f"Decoded LLRs shape: {decoded_bits.shape}")
     
-    # TODO: remove
-    rng = np.random.default_rng(seed=42)
-    sent_data = bytes(rng.integers(256, size=BYTES_BLOCK_LENGTH * 200, dtype=np.uint8))
-    data_qpsk_values = np.reshape(
-        qpsk.qpsk_encode(np.unpackbits(np.frombuffer(sent_data, dtype=np.uint8))), (-1, DATA_BLOCK_LENGTH)
-    )
-
-
     if plot:
         fig, axs = plt.subplots(2, 5)
-        for sent_vals, recv_vals, ax in zip(data_qpsk_values, adjusted_data_qpsk_symbols, axs.flatten(), strict=True):
+        for sent_vals, recv_vals, ax in zip(data_qpsk_values[:10], adjusted_data_qpsk_symbols[:10], axs.flatten(), strict=True):
             positive_real_mask = np.real(sent_vals) > 0
             positive_imag_mask = np.imag(sent_vals) > 0
             mask_00 = positive_real_mask & positive_imag_mask
@@ -159,13 +121,35 @@ def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray
 
             ax.legend()
 
+    # Alternative LLR calculation
+    # llr_real = np.real(np.sqrt(2) * adjusted_data_qpsk_symbols * avg_snr)
+    # llr_imag = np.imag(np.sqrt(2) * adjusted_data_qpsk_symbols * avg_snr)
 
+    noise_var = estimate.estimate_noise_var(adjusted_data_qpsk_symbols,avg_gain,data_qpsk_values)
+    llr_imag, llr_real = estimate.find_LLRs(adjusted_data_qpsk_symbols, avg_gain, noise_var)
 
+    llr = np.column_stack((llr_imag.flatten(), llr_real.flatten())).reshape(-1)
+    llr = llr[:(llr.size // LDPC_OUTPUT_LENGTH) * LDPC_OUTPUT_LENGTH].reshape(-1, LDPC_OUTPUT_LENGTH)
 
+    decode_output = [ldpc_code.decode(chunk.copy(), ldpc_dec_type, corr_factor) for chunk in llr]
+    decoded_llr, iterations = zip(*decode_output)
+    print(f"{iterations = }")
+    decoded_llr = np.array(decoded_llr)
+    bits = (decoded_llr < 0).astype(int)
 
+    change_in_llrs = decoded_llr - llr
+    max_index = np.argmax(np.abs(change_in_llrs))
+    min_index = np.argmin(np.abs(change_in_llrs))
+    print(f"Change in LLRs: max {np.max(np.abs(decoded_llr - llr))} from {llr.flatten()[max_index]} to {decoded_llr.flatten()[max_index]}")
+    print(f"Change in LLRs: min {np.min(np.abs(decoded_llr - llr))} from {llr.flatten()[min_index]} to {decoded_llr.flatten()[min_index]}")
+    print(f"Fraction of LLRs updated {np.mean(llr != decoded_llr)}, fraction of LLR bits flipped {np.mean((llr > 0) != (decoded_llr > 0))}")
+    # Expected to be identical to quadrant-based results
+    initial_llr_bit_error_rate = np.mean(sent_bits != (llr < 0).astype(int), axis=1)
+    final_llr_bit_error_rate = np.mean(sent_bits != bits, axis=1)
+    print(f"Pre-LDPC LLR bit error rate {initial_llr_bit_error_rate}")
+    print(f"Post-LDPC LLR bit error rate {final_llr_bit_error_rate}")
 
-
-
+    return bits
 
 
 
