@@ -52,7 +52,7 @@ def find_LLRs(
 ) -> npt.NDArray[np.float64]:
     """Calculate the Log-Likelihood Ratios (LLRs) for each symbol."""
     # Calculate Equalised Y symbols, find real and imaginary, find conjugate of channel.
-    equalised_received = received_symbols / channel_gains 
+    equalised_received = received_symbols
     real_equalised_received = np.real(equalised_received)
     imag_equalised_received = np.imag(equalised_received)
     channel_gains_conjugate = np.conjugate(channel_gains)
