@@ -1,5 +1,6 @@
 import numpy as np
 from statsmodels.robust.scale import huber
+from scipy.stats import trim_mean
 from sklearn.linear_model import HuberRegressor
 import matplotlib.pyplot as plt
 from modem.constants import DATA_PER_PILOT
@@ -13,7 +14,8 @@ def get_freq_gains(observed_freq_gains):
     d_pilot_phase[d_pilot_phase > 1.5*np.pi] -= 2 * np.pi
 
     x = np.arange(np.shape(pilot_phase)[1]).reshape(-1, 1)
-    y = np.array([huber(column)[0] for column in d_pilot_phase.T])
+    y = trim_mean(d_pilot_phase,  proportiontocut=0.1, axis=0)
+    # y = np.array([huber(column)[0] for column in d_pilot_phase.T])
 
     model = HuberRegressor(epsilon=1.35)  # lower epsilon → more robust (default is 1.35)
     model.fit(x, y)
