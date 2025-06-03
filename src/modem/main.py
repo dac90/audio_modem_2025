@@ -56,6 +56,7 @@ def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray
     recv_ofdm_symbols = np.reshape(
         aligned_signal[chirp.START_CHIRP.size : -chirp.END_CHIRP.size], (-1, OFDM_SYMBOL_LENGTH)
     )
+    
 
     if plot:
         fig, ax = plt.subplots()
@@ -125,7 +126,11 @@ def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray
     # Alternative LLR calculation
     # llr_real = np.real(np.sqrt(2) * adjusted_data_qpsk_symbols * avg_snr)
     # llr_imag = np.imag(np.sqrt(2) * adjusted_data_qpsk_symbols * avg_snr)
-
+    bits_real = (np.real(data_qpsk_values.flatten()) < 0).astype(int)
+    bits_imag = (np.imag(data_qpsk_values.flatten()) < 0).astype(int)
+    bits = np.column_stack((bits_imag, bits_real)).reshape(-1)
+    bits = bits[:(bits.size // LDPC_OUTPUT_LENGTH) * LDPC_OUTPUT_LENGTH]
+    sent_bits = bits.reshape(-1, LDPC_OUTPUT_LENGTH)
     noise_var = estimate.estimate_noise_var(adjusted_data_qpsk_symbols,avg_gain,data_qpsk_values)
     llr_imag, llr_real = estimate.find_LLRs(adjusted_data_qpsk_symbols, avg_gain, noise_var)
 
@@ -162,7 +167,7 @@ if __name__ == "__main__":
     def generate_test_data():
     # Generate random binary data
         rng = np.random.default_rng(seed=42)  # Use a fixed seed for reproducibility
-        data = bytes(rng.integers(0, 256, size=BYTES_BLOCK_LENGTH, dtype=np.uint8))  # Example: 10 blocks of data
+        data = bytes(rng.integers(0, 256, size=BYTES_BLOCK_LENGTH*5, dtype=np.uint8))  # Example: 10 blocks of data
 
         # Encode the data using the encode_data function
         data_bits = np.unpackbits(np.frombuffer(data, dtype=np.uint8))
@@ -177,7 +182,9 @@ if __name__ == "__main__":
     data, data_qpsk_values, coded_data_bits = generate_test_data()
     print("1...")
     
-    recv_signal = wav.read_wav("2025-05-28_LT6.wav")
-    decode_data(data_qpsk_values, recv_signal, False)
+    recv_signal = wav.read_wav("2025-06-03_LT5.wav")
+    decode_data(data_qpsk_values, recv_signal, True )
     print(f"shape of encoded_data_bits: {coded_data_bits.shape}")
     plt.show()
+
+
