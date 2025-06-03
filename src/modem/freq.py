@@ -5,7 +5,7 @@ from sklearn.linear_model import HuberRegressor
 import matplotlib.pyplot as plt
 from modem.constants import DATA_PER_PILOT
 
-def get_freq_gains(observed_freq_gains):
+def get_freq_gains(observed_freq_gains, plot: bool = True):
     observed_freq_mag = np.abs(observed_freq_gains)
     observed_freq_phase = np.angle(observed_freq_gains)
     pilot_phase = observed_freq_phase[~np.isnan(observed_freq_phase).any(axis=1)]
@@ -22,14 +22,15 @@ def get_freq_gains(observed_freq_gains):
 
     pilot_drift = model.predict(x)
 
-    plt.plot(x, y, 'o', label='Robust d_mean')
-    plt.plot(x, pilot_drift, 'r-', label='Huber Regression Fit', linewidth=2)
-    plt.title("Huber Regression on Robust d_mean")
-    plt.xlabel("Column Index")
-    plt.ylabel("Value")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    if plot:
+        fig, ax = plt.subplots()
+        ax.plot(x, y, 'o', label='Robust d_mean')
+        ax.plot(x, pilot_drift, 'r-', label='Huber Regression Fit', linewidth=2)
+        ax.set_title("Huber Regression on Robust d_mean")
+        ax.set_xlabel("Column Index")
+        ax.set_ylabel("Value")
+        ax.legend()
+        ax.grid(True)
 
     freq_phase_drift = pilot_drift / (1 + DATA_PER_PILOT)
     observed_freq_phase_intercept = observed_freq_phase-(np.arange(np.shape(observed_freq_gains)[0]).reshape(-1, 1) * freq_phase_drift)
@@ -37,7 +38,8 @@ def get_freq_gains(observed_freq_gains):
     freq_intercept = np.nanmean(observed_freq_intercept,axis=0)
     freq_gains = freq_intercept * np.exp(1j * np.arange(np.shape(observed_freq_gains)[0]).reshape(-1, 1) * freq_phase_drift)
 
-    plot_freq_intercept(observed_freq_intercept, 500)
+    if plot:
+        plot_freq_intercept(observed_freq_intercept, 500)
 
     return freq_gains
 
@@ -75,5 +77,3 @@ def plot_freq_intercept(observed_freq_intercept, freq):
 
     # Optional: add colorbar to show index mapping
     cbar = plt.colorbar(scatter, label='Index in frequency_gains')
-
-    plt.show()
