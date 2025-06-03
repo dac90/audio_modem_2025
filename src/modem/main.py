@@ -2,7 +2,7 @@ import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
 import scipy.signal
-from modem import chirp, pilot, qpsk, wav, estimate
+from modem import chirp, pilot, qpsk, wav, estimate, freq
 
 from modem.constants import (
     BYTES_BLOCK_LENGTH,
@@ -82,29 +82,29 @@ def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray
 
     with np.errstate(invalid="ignore"):
         observed_frequency_gains = qpsk.decode_ofdm_symbol(recv_ofdm_symbols) / known_qpsk_symbols
-    avg_gain = np.nanmean(observed_frequency_gains, axis=0)
+    freq_gains = freq.get_freq_gains(observed_frequency_gains)
+    data_freq_gains, pilot_freq_gains = pilot.extract_pilot_blocks(freq_gains)
 
-    snr_estimates = estimate.estimate_snr(known_qpsk_symbols, qpsk.decode_ofdm_symbol(recv_ofdm_symbols), avg_gain)
+    snr_estimates = estimate.estimate_snr(known_qpsk_symbols, qpsk.decode_ofdm_symbol(recv_ofdm_symbols), freq_gains)
     avg_snr = np.nanmean(snr_estimates, axis=0)
 
-    
+    print(f"SNR ratio is {10 * np.log10(np.nanmean(avg_snr)):.5f}dB")
 
     if plot:
         fig, ax = plt.subplots()
         freqs = np.linspace(LOWER_FREQUENCY_BOUND, UPPER_FREQUENCY_BOUND, DATA_BLOCK_LENGTH, endpoint=False)
         for i, block_gain in enumerate(observed_frequency_gains[~np.isnan(observed_frequency_gains).any(axis=1)]):
             ax.plot(freqs, np.log10(np.abs(block_gain)), label=f"Block {i}")
-        ax.plot(freqs, np.log10(np.abs(avg_gain)), label="Mean")
+        ax.plot(freqs, np.mean(np.log10(np.abs(freq_gains)), axis=0), label="Mean")
         ax.set_title("Frequency Gain Plot (in dB)")
         ax.set_xlabel("Frequency (Hz)")
         ax.set_ylabel("Gain (dB)")
         ax.legend()
 
-    adjusted_data_qpsk_symbols = qpsk.wiener_filter(
-        qpsk.decode_ofdm_symbol(recv_ofdm_symbols[1::2, :]), avg_gain, avg_snr
-    )
+    recv_data_qpsk_symbols = qpsk.decode_ofdm_symbol(recv_ofdm_symbols[1::2, :])
+    adjusted_data_qpsk_symbols = qpsk.wiener_filter(recv_data_qpsk_symbols, data_freq_gains, avg_snr)
     # Without Wiener filter, just using ratio
-    # adjusted_data_qpsk_symbols = qpsk.decode_ofdm_symbol(recv_ofdm_symbols[1::2, :]) / avg_gain
+    # adjusted_data_qpsk_symbols = qpsk.decode_ofdm_symbol(recv_ofdm_symbols[1::2, :]) / data_freq_gains
 
     data_qpsk_values = data_qpsk_values.reshape(-1, DATA_BLOCK_LENGTH)
     
@@ -131,8 +131,9 @@ def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray
     bits = np.column_stack((bits_imag, bits_real)).reshape(-1)
     bits = bits[:(bits.size // LDPC_OUTPUT_LENGTH) * LDPC_OUTPUT_LENGTH]
     sent_bits = bits.reshape(-1, LDPC_OUTPUT_LENGTH)
-    noise_var = estimate.estimate_noise_var(adjusted_data_qpsk_symbols,avg_gain,data_qpsk_values)
-    llr_imag, llr_real = estimate.find_LLRs(adjusted_data_qpsk_symbols, avg_gain, noise_var)
+
+    noise_var = estimate.estimate_noise_var(recv_data_qpsk_symbols, data_freq_gains, data_qpsk_values)
+    llr_imag, llr_real = estimate.find_LLRs(adjusted_data_qpsk_symbols, data_freq_gains, noise_var)
 
     llr = np.column_stack((llr_imag.flatten(), llr_real.flatten())).reshape(-1)
     llr = llr[:(llr.size // LDPC_OUTPUT_LENGTH) * LDPC_OUTPUT_LENGTH].reshape(-1, LDPC_OUTPUT_LENGTH)
