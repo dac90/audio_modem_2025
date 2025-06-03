@@ -11,6 +11,7 @@ dependencies = [
     "ldpc-jossy",
     "matplotlib>=3.10.3",
     "numpy>=2.2.6",
+    "scikit-learn>=1.6.1",
     "scipy>=1.15.3",
     "sounddevice>=0.5.2",
     "statsmodels>=0.14.4",
