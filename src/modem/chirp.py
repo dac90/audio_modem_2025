@@ -18,9 +18,14 @@ START_CHIRP = scipy.signal.chirp(CHIRP_TIMES, f0=CHIRP_F0, f1=CHIRP_F1, t1=CHIRP
 END_CHIRP = scipy.signal.chirp(CHIRP_TIMES, f0=CHIRP_F1, f1=CHIRP_F0, t1=CHIRP_DURATION, method="linear")
 
 
-def synchronise(recv_signal: npt.NDArray[np.float64], plot_correlations: bool = False):
+def synchronise(recv_signal: npt.NDArray[np.float64], plot_correlations: bool = False, delay: int = 0):
     """Synchronise received signal assuming a whole number of OFDM_SYMBOL_LENGTH between start and end chirps.
-    Returns aligned signal with start and end chirp included."""
+    Returns aligned signal with start and end chirp included.
+    
+    If plot_correlations, will create a plot with the correlations of the signal with the start and end chirp
+    around their maxima.
+    
+    If a delay is given, it will delay the aligned signal by that many samples (may be negative)."""
     recv_signal = recv_signal.flatten() ###
     start_correlation = scipy.signal.correlate(recv_signal, START_CHIRP, mode="valid")
     lags = scipy.signal.correlation_lags(recv_signal.size, START_CHIRP.size, mode="valid")
@@ -48,5 +53,5 @@ def synchronise(recv_signal: npt.NDArray[np.float64], plot_correlations: bool = 
         ax.legend()
         ax.set_xlabel("Time (seconds)")
 
-    aligned_recv_signal = np.roll(recv_signal, -start_lag)
+    aligned_recv_signal = np.roll(recv_signal, -start_lag + delay)
     return aligned_recv_signal[: expected_difference +  END_CHIRP.size]
