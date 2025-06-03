@@ -79,7 +79,8 @@ def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray
         np.full((num_data_symbols, DATA_BLOCK_LENGTH), np.nan, dtype=np.complex128), pilot_qpsk_symbols
     )
 
-    observed_frequency_gains = qpsk.decode_ofdm_symbol(recv_ofdm_symbols) / known_qpsk_symbols
+    with np.errstate(invalid="ignore"):
+        observed_frequency_gains = qpsk.decode_ofdm_symbol(recv_ofdm_symbols) / known_qpsk_symbols
     avg_gain = np.nanmean(observed_frequency_gains, axis=0)
 
     snr_estimates = estimate.estimate_snr(known_qpsk_symbols, qpsk.decode_ofdm_symbol(recv_ofdm_symbols), avg_gain)

@@ -18,7 +18,7 @@ START_CHIRP = scipy.signal.chirp(CHIRP_TIMES, f0=CHIRP_F0, f1=CHIRP_F1, t1=CHIRP
 END_CHIRP = scipy.signal.chirp(CHIRP_TIMES, f0=CHIRP_F1, f1=CHIRP_F0, t1=CHIRP_DURATION, method="linear")
 
 
-def synchronise(recv_signal: npt.NDArray[np.complex64], plot_correlations: bool = False):
+def synchronise(recv_signal: npt.NDArray[np.float64], plot_correlations: bool = False):
     """Synchronise received signal assuming a whole number of OFDM_SYMBOL_LENGTH between start and end chirps.
     Returns aligned signal with start and end chirp included."""
     recv_signal = recv_signal.flatten() ###
