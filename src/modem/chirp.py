@@ -29,11 +29,11 @@ def synchronise(recv_signal: npt.NDArray[np.float64], plot_correlations: bool = 
     recv_signal = recv_signal.flatten() ###
     start_correlation = scipy.signal.correlate(recv_signal, START_CHIRP, mode="valid")
     lags = scipy.signal.correlation_lags(recv_signal.size, START_CHIRP.size, mode="valid")
-    start_lag = lags[np.argmax(np.abs(start_correlation))]
+    start_lag = lags[np.argmax(np.abs(start_correlation))] - delay
 
     end_correlation = scipy.signal.correlate(recv_signal, END_CHIRP, mode="valid")
     lags = scipy.signal.correlation_lags(recv_signal.size, END_CHIRP.size, mode="valid")
-    end_lag = lags[np.argmax(np.abs(end_correlation))]
+    end_lag = lags[np.argmax(np.abs(end_correlation))] - delay
 
     difference = end_lag - start_lag
     number_of_blocks = round((difference - len(START_CHIRP)) / OFDM_SYMBOL_LENGTH)
@@ -44,7 +44,7 @@ def synchronise(recv_signal: npt.NDArray[np.float64], plot_correlations: bool = 
 
     if plot_correlations:
         fig, ax = plt.subplots()
-        prefix, suffix = 300, 500
+        prefix, suffix = 1000, 1000
         time_vals = np.arange(-prefix, suffix) / FS
         ax.plot(
             time_vals, start_correlation[start_lag - prefix : start_lag + suffix], label="Correlation with start chirp"
@@ -53,5 +53,5 @@ def synchronise(recv_signal: npt.NDArray[np.float64], plot_correlations: bool = 
         ax.legend()
         ax.set_xlabel("Time (seconds)")
 
-    aligned_recv_signal = np.roll(recv_signal, -start_lag + delay)
+    aligned_recv_signal = np.roll(recv_signal, -start_lag)
     return aligned_recv_signal[: expected_difference +  END_CHIRP.size]
