@@ -51,7 +51,7 @@ def encode_data(data: bytes) -> npt.NDArray[np.float64]:
     return signal
 
 
-def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray[np.float64], plot: bool = False) -> None:
+def decode_data(pilot_qpsk_symbols: npt.NDArray[np.complex128],data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray[np.float64], plot: bool = False) -> None:
     aligned_signal = chirp.synchronise(signal, plot_correlations=plot) # Synchronise the received signal with the start chirp.
     recv_ofdm_symbols = np.reshape(
         aligned_signal[chirp.START_CHIRP.size : -chirp.END_CHIRP.size], (-1, OFDM_SYMBOL_LENGTH)
@@ -72,14 +72,17 @@ def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray
     length_ofdm_symbol = recv_ofdm_symbols.shape[1] 
     
 
-    assert num_ofdm_symbols % 2 == 1, f"Expected an odd number of total symbols"
-    num_data_symbols = num_ofdm_symbols // 2 
-    num_pilot_symbols = num_data_symbols + 1
-    pilot_qpsk_symbols = np.reshape(pilot.generate_pilot_blocks(num_pilot_symbols), (-1, DATA_BLOCK_LENGTH))
+    """assert num_ofdm_symbols % 2 == 1, f"Expected an odd number of total symbols"
+    num_data_symbols = num_ofdm_symbols // 4 
+    num_pilot_symbols = num_data_symbols + 1 # Fix this 
+    pilot_qpsk_symbols = np.reshape(pilot.generate_pilot_blocks(num_pilot_symbols), (-1, DATA_BLOCK_LENGTH))"""
     known_qpsk_symbols = pilot.interleave_pilot_blocks(
         np.full((num_data_symbols, DATA_BLOCK_LENGTH), np.nan, dtype=np.complex128), pilot_qpsk_symbols
     )
-
+    ###
+    recieved_QPSK = qpsk.decode_ofdm_symbol(recv_ofdm_symbols)
+    data_blocks,pilot_blocks = pilot.extract_pilot_blocks(recieved_QPSK)
+    ###
     with np.errstate(invalid="ignore"):
         observed_frequency_gains = qpsk.decode_ofdm_symbol(recv_ofdm_symbols) / known_qpsk_symbols
     freq_gains = freq.get_freq_gains(observed_frequency_gains, plot=plot)
