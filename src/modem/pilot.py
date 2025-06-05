@@ -7,7 +7,7 @@ def generate_pilot_blocks(num: int):
     rng = np.random.default_rng(seed=RNG_SEED) # creates a random number generator with a fixed seed for reproducibility
     pilot_bits = rng.integers(2, size=DATA_BLOCK_LENGTH * 2 * num) # creates pilot bits (0,1) the total number of bits is equal to the size parameter.
     pilot_qpsk_symbols = qpsk.qpsk_encode(pilot_bits) # Turn pilot bits into QPSK symbols
-    return pilot_qpsk_symbols
+    return pilot_qpsk_symbols.reshape(-1, DATA_BLOCK_LENGTH)
 
 
 def interleave_pilot_blocks(data_blocks, pilot_blocks):
