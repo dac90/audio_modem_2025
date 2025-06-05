@@ -5,17 +5,23 @@ import scipy.signal
 
 from modem.constants import FS, OFDM_SYMBOL_LENGTH
 
-CHIRP_DURATION = 0.0625
-CHIRP_F0 = 2000
+CHIRP_DURATION = 0.5
+CHIRP_LENGTH = int(CHIRP_DURATION * FS)
+CHIRP_F0 = 0
 CHIRP_F1 = 3000
 
-CHIRP_TIMES = np.linspace(0, CHIRP_DURATION, int(CHIRP_DURATION * FS), endpoint=False)
 
-# Use upward chirp for start
-START_CHIRP = scipy.signal.chirp(CHIRP_TIMES, f0=CHIRP_F0, f1=CHIRP_F1, t1=CHIRP_DURATION, method="linear")
+def generate_chirp() -> npt.NDArray[np.float64]:
+    t = np.linspace(0, CHIRP_DURATION, CHIRP_LENGTH)
+    chirp = np.sin(np.pi * (CHIRP_F0 + (CHIRP_F1 - CHIRP_F0) * t / CHIRP_DURATION) * t)
+    return chirp
 
-# Use downward chirp for end
-END_CHIRP = scipy.signal.chirp(CHIRP_TIMES, f0=CHIRP_F1, f1=CHIRP_F0, t1=CHIRP_DURATION, method="linear")
+
+# Use reversed chirp for start
+START_CHIRP = generate_chirp()[::-1]
+
+# Use forward chirp for end
+END_CHIRP = generate_chirp()
 
 
 def synchronise(recv_signal: npt.NDArray[np.float64], plot_correlations: bool = False, delay: int = 0):
