@@ -2,18 +2,18 @@ import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
 
+from modem.constants import QPSK_MULTIPLIER
+
 
 def estimate_snr(
     expected_symbols: npt.NDArray[np.complex128],
     received_symbols: npt.NDArray[np.complex128],
     channel_gains: npt.NDArray[np.complex128],
     plot: bool = False,
-) -> npt.NDArray[np.float64]:
-    """Calculate the SNR for each frequency (ratio not dB).
+) -> tuple[float, float]:
+    """Calculate the SNR, A^2/sigma^2.
     Note this function expects the received symbols before
     gain compensation."""
-    # TODO: probably best to just use an input with unit power
-    signal_power = np.abs(expected_symbols * channel_gains) ** 2
     error = (expected_symbols * channel_gains) - received_symbols
 
     if plot:
@@ -22,10 +22,11 @@ def estimate_snr(
         ax.set_title("Error $hX - Y$")
         ax.set_aspect('equal')
 
-    noise_power = np.nanmean(np.abs(error) ** 2)
+    signal_power = QPSK_MULTIPLIER ** 2
+    noise_power = float(np.nanmean(np.abs(error) ** 2))
     snr = signal_power / noise_power
     var = noise_power
-    return snr ,var
+    return snr, var
 
 
 def avg_phase_shift(
