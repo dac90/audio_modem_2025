@@ -1,5 +1,8 @@
 import math
 from ldpc_jossy.py.ldpc import code
+
+RNG_SEED = 42
+
 # Sampling rate
 FS = 48000
 

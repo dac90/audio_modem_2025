@@ -10,6 +10,7 @@ from modem.constants import (
     DATA_BLOCK_LENGTH,
     LOWER_FREQUENCY_BOUND,
     OFDM_SYMBOL_LENGTH,
+    RNG_SEED,
     UPPER_FREQUENCY_BOUND,
     ldpc_standard,
     ldpc_rate,
@@ -170,7 +171,7 @@ if __name__ == "__main__":
     #wav.generate_wav("signal.wav", signal)
     def generate_test_data():
     # Generate random binary data
-        rng = np.random.default_rng(seed=42)  # Use a fixed seed for reproducibility
+        rng = np.random.default_rng(seed=RNG_SEED)  # Use a fixed seed for reproducibility
         data = bytes(rng.integers(0, 256, size=BYTES_BLOCK_LENGTH*5, dtype=np.uint8))  # Example: 10 blocks of data
 
         # Encode the data using the encode_data function
