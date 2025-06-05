@@ -33,29 +33,29 @@ pcmat = ldpc_code.pcmat()
 
 
 def encode_data(data: bytes) -> npt.NDArray[np.float64]:
-    data_bits = np.unpackbits(np.frombuffer(data, dtype=np.uint8))
-    pad_len = int((-len(data_bits)) % LDPC_INPUT_LENGTH)
-    data_bits = np.pad(data_bits, (0, pad_len), constant_values=0).reshape((-1, LDPC_INPUT_LENGTH))
-    coded_data_bits = np.vstack([ldpc_code.encode(ldpc_block) for ldpc_block in data_bits])
-    data_qpsk_values = qpsk.qpsk_encode(coded_data_bits.flatten())
-    data_ofdm_symbols = qpsk.encode_ofdm_symbol(data_qpsk_values)
+    data_bits = np.unpackbits(np.frombuffer(data, dtype=np.uint8)) # convert bytes to bits
+    pad_len = int((-len(data_bits)) % LDPC_INPUT_LENGTH) # calculates padding length required to make total length of data_bits an exact multiple of LDDPC_INPUT_LENGTH
+    data_bits = np.pad(data_bits, (0, pad_len), constant_values=0).reshape((-1, LDPC_INPUT_LENGTH)) # Pads data_bits with zeros at its end ensuring total length is a mutliple of LDPC_input_Length. THen ti is shaped into a a 2d array where each row has LDPC INPUT_LENGTH BITS.
+    coded_data_bits = np.vstack([ldpc_code.encode(ldpc_block) for ldpc_block in data_bits])# PERFORMS LDPC encoding on each block of input bits and stacks the results. Applies it on each row and then stacks the rows.
+    data_qpsk_values = qpsk.qpsk_encode(coded_data_bits.flatten()) # Encodes the coded data bits into qpsk symbols based on the gray code.
+    data_ofdm_symbols = qpsk.encode_ofdm_symbol(data_qpsk_values) # Encode the ofdm symbols from the qpsk symbols (i.e tke the IFFT)
 
-    num_ofdm_blocks = data_ofdm_symbols.shape[0]
+    num_ofdm_blocks = data_ofdm_symbols.shape[0] # Number of OFDM blocks is the number of rows in data_ofdm_symbols
     print(f"Data encoded into {num_ofdm_blocks} OFDM blocks")
 
-    pilot_qpsk_symbols = pilot.generate_pilot_blocks(num_ofdm_blocks + 1)
-    pilot_ofdm_symbols = qpsk.encode_ofdm_symbol(pilot_qpsk_symbols)
-    ofdm_symbols = pilot.interleave_pilot_blocks(data_ofdm_symbols, pilot_ofdm_symbols)
+    pilot_qpsk_symbols = pilot.generate_pilot_blocks(num_ofdm_blocks + 1) # generate the pilto blocks
+    pilot_ofdm_symbols = qpsk.encode_ofdm_symbol(pilot_qpsk_symbols) # Encode the pilot blocks into OFDM symbols
+    ofdm_symbols = pilot.interleave_pilot_blocks(data_ofdm_symbols, pilot_ofdm_symbols) # Interleave the pilot blocks with the data blocks, so that each pilot block is followed by DATA_PER_PILOT data blocks.
 
-    signal = np.concatenate((chirp.START_CHIRP, ofdm_symbols.flatten(), chirp.END_CHIRP))
+    signal = np.concatenate((chirp.START_CHIRP, ofdm_symbols.flatten(), chirp.END_CHIRP)) # Concatenate the start chirp, the flattened OFDM symbols and the end chirp to create the final signal.
     return signal
 
 
 def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray[np.float64], plot: bool = False) -> None:
-    aligned_signal = chirp.synchronise(signal, plot_correlations=plot)
+    aligned_signal = chirp.synchronise(signal, plot_correlations=plot) # Synchronise the received signal with the start chirp.
     recv_ofdm_symbols = np.reshape(
         aligned_signal[chirp.START_CHIRP.size : -chirp.END_CHIRP.size], (-1, OFDM_SYMBOL_LENGTH)
-    )
+    ) # Reshape into matrix of OFDM symbols, exlcuding the start and end chirps.
     
 
     if plot:
@@ -68,12 +68,12 @@ def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray
         ax.set_xlabel("Time [sec]")
         cbar = fig.colorbar(pcm, ax=ax, label="Power/Frequency (dB/Hz)")
 
-    num_ofdm_symbols = recv_ofdm_symbols.shape[0]
-    length_ofdm_symbol = recv_ofdm_symbols.shape[1]
+    num_ofdm_symbols = recv_ofdm_symbols.shape[0] 
+    length_ofdm_symbol = recv_ofdm_symbols.shape[1] 
     
 
     assert num_ofdm_symbols % 2 == 1, f"Expected an odd number of total symbols"
-    num_data_symbols = num_ofdm_symbols // 2
+    num_data_symbols = num_ofdm_symbols // 2 
     num_pilot_symbols = num_data_symbols + 1
     pilot_qpsk_symbols = np.reshape(pilot.generate_pilot_blocks(num_pilot_symbols), (-1, DATA_BLOCK_LENGTH))
     known_qpsk_symbols = pilot.interleave_pilot_blocks(
@@ -85,7 +85,7 @@ def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray
     freq_gains = freq.get_freq_gains(observed_frequency_gains, plot=plot)
     data_freq_gains, pilot_freq_gains = pilot.extract_pilot_blocks(freq_gains)
 
-    snr_estimates = estimate.estimate_snr(known_qpsk_symbols, qpsk.decode_ofdm_symbol(recv_ofdm_symbols), freq_gains)
+    snr_estimates, noise_var = estimate.estimate_snr(known_qpsk_symbols, qpsk.decode_ofdm_symbol(recv_ofdm_symbols), freq_gains)
     avg_snr = np.nanmean(snr_estimates, axis=0)
 
     print(f"SNR ratio is {10 * np.log10(np.nanmean(avg_snr)):.5f}dB")
@@ -132,7 +132,7 @@ def decode_data(data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray
     bits = bits[:(bits.size // LDPC_OUTPUT_LENGTH) * LDPC_OUTPUT_LENGTH]
     sent_bits = bits.reshape(-1, LDPC_OUTPUT_LENGTH)
 
-    noise_var = estimate.estimate_noise_var(recv_data_qpsk_symbols, data_freq_gains, data_qpsk_values)
+    #_,noise_var = estimate.estimate_noise_var(recv_data_qpsk_symbols, data_freq_gains, data_qpsk_values)
     llr_imag, llr_real = estimate.find_LLRs(adjusted_data_qpsk_symbols, data_freq_gains, noise_var)
 
     llr = np.column_stack((llr_imag.flatten(), llr_real.flatten())).reshape(-1)
@@ -183,7 +183,7 @@ if __name__ == "__main__":
     data, data_qpsk_values, coded_data_bits = generate_test_data()
     print("1...")
     
-    recv_signal = wav.read_wav("2025-06-03_LT5.wav")
+    recv_signal = wav.read_wav(r"C:\Users\idoba\Downloads\2025-06-03_LT5.wav")
     decode_data(data_qpsk_values, recv_signal, True )
     print(f"shape of encoded_data_bits: {coded_data_bits.shape}")
     plt.show()

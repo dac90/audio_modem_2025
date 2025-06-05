@@ -23,7 +23,9 @@ def estimate_snr(
         ax.set_aspect('equal')
 
     noise_power = np.nanmean(np.abs(error) ** 2)
-    return signal_power / noise_power
+    snr = signal_power / noise_power
+    var = noise_power
+    return snr ,var
 
 
 def avg_phase_shift(
