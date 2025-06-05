@@ -52,11 +52,11 @@ def encode_data(data: bytes) -> npt.NDArray[np.float64]:
     return signal
 
 
-def decode_data(pilot_qpsk_symbols: npt.NDArray[np.complex128],data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray[np.float64], plot: bool = False) -> None:
+def decode_data(sent_data_qpsk_values: npt.NDArray[np.complex128],signal: npt.NDArray[np.float64], plot: bool = False) -> None:
     aligned_signal = chirp.synchronise(signal, plot_correlations=plot) # Synchronise the received signal with the start chirp.
     recv_ofdm_symbols = np.reshape(
         aligned_signal[chirp.START_CHIRP.size : -chirp.END_CHIRP.size], (-1, OFDM_SYMBOL_LENGTH)
-    ) # Reshape into matrix of OFDM symbols, exlcuding the start and end chirps.
+    ) # Reshape into matrix of OFDM symbols, excluding the start and end chirps.
     
 
     if plot:
@@ -68,31 +68,25 @@ def decode_data(pilot_qpsk_symbols: npt.NDArray[np.complex128],data_qpsk_values:
         ax.set_ylabel("Frequency [Hz]")
         ax.set_xlabel("Time [sec]")
         cbar = fig.colorbar(pcm, ax=ax, label="Power/Frequency (dB/Hz)")
-
-    num_ofdm_symbols = recv_ofdm_symbols.shape[0] 
-    length_ofdm_symbol = recv_ofdm_symbols.shape[1] 
     
 
-    """assert num_ofdm_symbols % 2 == 1, f"Expected an odd number of total symbols"
-    num_data_symbols = num_ofdm_symbols // 4 
-    num_pilot_symbols = num_data_symbols + 1 # Fix this 
-    pilot_qpsk_symbols = np.reshape(pilot.generate_pilot_blocks(num_pilot_symbols), (-1, DATA_BLOCK_LENGTH))"""
+    received_QPSK = qpsk.decode_ofdm_symbol(recv_ofdm_symbols)
+    data_blocks, pilot_blocks = pilot.extract_pilot_blocks(received_QPSK)
+
+    sent_pilot_qpsk_symbols = pilot.generate_pilot_blocks(pilot_blocks.shape[0])
+    print(sent_pilot_qpsk_symbols.shape, data_blocks.shape)
     known_qpsk_symbols = pilot.interleave_pilot_blocks(
-        np.full((num_data_symbols, DATA_BLOCK_LENGTH), np.nan, dtype=np.complex128), pilot_qpsk_symbols
+        np.full(data_blocks.shape, np.nan, dtype=np.complex128), sent_pilot_qpsk_symbols
     )
-    ###
-    recieved_QPSK = qpsk.decode_ofdm_symbol(recv_ofdm_symbols)
-    data_blocks,pilot_blocks = pilot.extract_pilot_blocks(recieved_QPSK)
-    ###
+
     with np.errstate(invalid="ignore"):
         observed_frequency_gains = qpsk.decode_ofdm_symbol(recv_ofdm_symbols) / known_qpsk_symbols
     freq_gains = freq.get_freq_gains(observed_frequency_gains, plot=plot)
     data_freq_gains, pilot_freq_gains = pilot.extract_pilot_blocks(freq_gains)
 
-    snr_estimates, noise_var = estimate.estimate_snr(known_qpsk_symbols, qpsk.decode_ofdm_symbol(recv_ofdm_symbols), freq_gains)
-    avg_snr = np.nanmean(snr_estimates, axis=0)
+    snr, noise_var = estimate.estimate_snr(known_qpsk_symbols, qpsk.decode_ofdm_symbol(recv_ofdm_symbols), freq_gains)
 
-    print(f"SNR ratio is {10 * np.log10(np.nanmean(avg_snr)):.5f}dB")
+    print(f"SNR ratio is {10 * np.log10(snr):.5f}dB")
 
     if plot:
         fig, ax = plt.subplots()
@@ -105,16 +99,14 @@ def decode_data(pilot_qpsk_symbols: npt.NDArray[np.complex128],data_qpsk_values:
         ax.set_ylabel("Gain (dB)")
         ax.legend()
 
-    recv_data_qpsk_symbols = qpsk.decode_ofdm_symbol(recv_ofdm_symbols[1::2, :])
-    adjusted_data_qpsk_symbols = qpsk.wiener_filter(recv_data_qpsk_symbols, data_freq_gains, avg_snr)
-    # Without Wiener filter, just using ratio
-    # adjusted_data_qpsk_symbols = qpsk.decode_ofdm_symbol(recv_ofdm_symbols[1::2, :]) / data_freq_gains
 
-    data_qpsk_values = data_qpsk_values.reshape(-1, DATA_BLOCK_LENGTH)
+    adjusted_data_qpsk_symbols = qpsk.wiener_filter(data_blocks, data_freq_gains, snr)
+
+    sent_data_qpsk_values = sent_data_qpsk_values.reshape(-1, DATA_BLOCK_LENGTH)
     
     if plot:
         fig, axs = plt.subplots(2, 5)
-        for sent_vals, recv_vals, ax in zip(data_qpsk_values[:10], adjusted_data_qpsk_symbols[:10], axs.flatten(), strict=True):
+        for sent_vals, recv_vals, ax in zip(sent_data_qpsk_values[:10], adjusted_data_qpsk_symbols[:10], axs.flatten(), strict=True):
             positive_real_mask = np.real(sent_vals) > 0
             positive_imag_mask = np.imag(sent_vals) > 0
             mask_00 = positive_real_mask & positive_imag_mask
@@ -127,11 +119,8 @@ def decode_data(pilot_qpsk_symbols: npt.NDArray[np.complex128],data_qpsk_values:
 
             ax.legend()
 
-    # Alternative LLR calculation
-    # llr_real = np.real(np.sqrt(2) * adjusted_data_qpsk_symbols * avg_snr)
-    # llr_imag = np.imag(np.sqrt(2) * adjusted_data_qpsk_symbols * avg_snr)
-    bits_real = (np.real(data_qpsk_values.flatten()) < 0).astype(int)
-    bits_imag = (np.imag(data_qpsk_values.flatten()) < 0).astype(int)
+    bits_real = (np.real(sent_data_qpsk_values.flatten()) < 0).astype(int)
+    bits_imag = (np.imag(sent_data_qpsk_values.flatten()) < 0).astype(int)
     bits = np.column_stack((bits_imag, bits_real)).reshape(-1)
     bits = bits[:(bits.size // LDPC_OUTPUT_LENGTH) * LDPC_OUTPUT_LENGTH]
     sent_bits = bits.reshape(-1, LDPC_OUTPUT_LENGTH)
