@@ -44,8 +44,8 @@ def encode_data(data: bytes) -> npt.NDArray[np.float64]:
     num_ofdm_blocks = data_ofdm_symbols.shape[0] # Number of OFDM blocks is the number of rows in data_ofdm_symbols
     print(f"Data encoded into {num_ofdm_blocks} OFDM blocks")
 
-    pilot_qpsk_symbols = pilot.generate_pilot_blocks(num_ofdm_blocks + 1) # generate the pilto blocks
-    pilot_ofdm_symbols = qpsk.encode_ofdm_symbol(pilot_qpsk_symbols) # Encode the pilot blocks into OFDM symbols
+    pilot_qpsk_symbols = pilot.generate_pilot_blocks(int(math.ceil(num_ofdm_blocks / DATA_PER_PILOT))) # generate the pilto blocks
+    pilot_ofdm_symbols = qpsk.encode_ofdm_symbol(pilot_qpsk_symbols.flatten()) # Encode the pilot blocks into OFDM symbols
     ofdm_symbols = pilot.interleave_pilot_blocks(data_ofdm_symbols, pilot_ofdm_symbols) # Interleave the pilot blocks with the data blocks, so that each pilot block is followed by DATA_PER_PILOT data blocks.
 
     signal = np.concatenate((chirp.START_CHIRP, ofdm_symbols.flatten(), chirp.END_CHIRP)) # Concatenate the start chirp, the flattened OFDM symbols and the end chirp to create the final signal.
