@@ -24,7 +24,8 @@ START_CHIRP = generate_chirp()[::-1]
 END_CHIRP = generate_chirp()
 
 
-def synchronise(recv_signal: npt.NDArray[np.float64], plot_correlations: bool = False, delay: int = 0):
+def synchronise(recv_signal: npt.NDArray[np.float64], plot_correlations: bool = False,
+                plot_spectrogram: bool = False, delay: int = 0):
     """Synchronise received signal assuming a whole number of OFDM_SYMBOL_LENGTH between start and end chirps.
     Returns aligned signal with start and end chirp included.
     
@@ -59,5 +60,16 @@ def synchronise(recv_signal: npt.NDArray[np.float64], plot_correlations: bool = 
         ax.legend()
         ax.set_xlabel("Time (seconds)")
 
-    aligned_recv_signal = np.roll(recv_signal, -start_lag)
-    return aligned_recv_signal[: expected_difference +  END_CHIRP.size]
+    aligned_recv_signal = np.roll(recv_signal, -start_lag)[: expected_difference +  END_CHIRP.size]
+
+    if plot_spectrogram:
+        fig, ax = plt.subplots()
+
+        f, t_spec, Sxx = scipy.signal.spectrogram(aligned_recv_signal, FS)
+
+        pcm = ax.pcolormesh(t_spec, f, 10 * np.log10(Sxx), shading="gouraud")
+        ax.set_ylabel("Frequency [Hz]")
+        ax.set_xlabel("Time [sec]")
+        cbar = fig.colorbar(pcm, ax=ax, label="Power/Frequency (dB/Hz)")
+
+    return aligned_recv_signal

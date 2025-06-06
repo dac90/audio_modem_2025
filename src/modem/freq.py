@@ -3,7 +3,7 @@ from statsmodels.robust.scale import huber
 from scipy.stats import trim_mean
 from sklearn.linear_model import HuberRegressor
 import matplotlib.pyplot as plt
-from modem.constants import DATA_PER_PILOT
+from modem.constants import DATA_BLOCK_LENGTH, DATA_PER_PILOT, LOWER_FREQUENCY_BOUND, UPPER_FREQUENCY_BOUND
 
 def get_freq_gains(observed_freq_gains, plot: bool = True):
     observed_freq_mag = np.abs(observed_freq_gains)
@@ -40,6 +40,17 @@ def get_freq_gains(observed_freq_gains, plot: bool = True):
 
     if plot:
         plot_freq_intercept(observed_freq_intercept, 500)
+
+    if plot:
+        fig, ax = plt.subplots()
+        freqs = np.linspace(LOWER_FREQUENCY_BOUND, UPPER_FREQUENCY_BOUND, DATA_BLOCK_LENGTH, endpoint=False)
+        for i, block_gain in enumerate(observed_freq_gains[~np.isnan(observed_freq_gains).any(axis=1)]):
+            ax.plot(freqs, np.log10(np.abs(block_gain)), label=f"Block {i}")
+        ax.plot(freqs, np.mean(np.log10(np.abs(freq_gains)), axis=0), label="Mean")
+        ax.set_title("Frequency Gain Plot (in dB)")
+        ax.set_xlabel("Frequency (Hz)")
+        ax.set_ylabel("Gain (dB)")
+        ax.legend()
 
     return freq_gains
 

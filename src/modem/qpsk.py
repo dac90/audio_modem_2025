@@ -125,6 +125,40 @@ def wiener_filter(y: npt.NDArray[np.complex128], h: npt.NDArray[np.complex128], 
     x = (y * np.conj(h)) / (np.abs(h) ** 2 + (1 / snr))
     return x
 
+
+def plot_received_constellation(recv_data_qpsk_values: npt.NDArray[np.complex128],
+                                sent_data_qpsk_values: npt.NDArray[np.complex128] | None = None):
+    """Create Argand plot of normalised received QPSK symbols for first 5 and last 5 blocks.
+    Colors symbols depending on original sent symbol if sent QPSK symbols are provided."""
+    fig, axs = plt.subplots(2, 5)
+    block_indices = [*range(5), *range(-5, 0)]  # Plot first 5 and last 5 blocks
+    ax_limit = np.max(np.maximum(np.abs(recv_data_qpsk_values.real), np.abs(recv_data_qpsk_values.imag)))
+    for block_index, ax in zip(block_indices, axs.flatten(), strict=True):
+        recv_block = recv_data_qpsk_values[block_index]
+
+        if sent_data_qpsk_values is not None:
+            sent_block = sent_data_qpsk_values[block_index]
+            positive_real_mask = np.real(sent_block) > 0
+            positive_imag_mask = np.imag(sent_block) > 0
+            mask_00 = positive_real_mask & positive_imag_mask
+            mask_01 = (~positive_real_mask) & positive_imag_mask
+            mask_11 = (~positive_real_mask) & (~positive_imag_mask)
+            mask_10 = positive_real_mask & (~positive_imag_mask)
+
+            for mask, bits in ((mask_00, "00"), (mask_01, "01"), (mask_10, "10"), (mask_11, "11")):
+                ax.scatter(np.real(recv_block[mask]), np.imag(recv_block[mask]), label=bits)
+            ax.legend()
+        else:
+            ax.scatter(np.real(recv_block), np.imag(recv_block))
+
+        ax.set_xlim(-ax_limit, ax_limit)
+        ax.set_ylim(-ax_limit, ax_limit)
+
+        # Convert negative index to positive
+        block_num = block_index if block_index >= 0 else block_index + recv_data_qpsk_values.shape[0]
+        ax.set_title(f"OFDM block {block_num + 1}")
+
+
 ########################################
 """Implement transmitter and reciever
 """
