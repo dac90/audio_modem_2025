@@ -39,3 +39,4 @@ corr_factor = 0.7 # should have a discussion about this value.
 ldpc_code = code(standard=ldpc_standard, rate=ldpc_rate, z=ldpc_z_val, ptype=ldpc_ptype)
 LDPC_INPUT_LENGTH = ldpc_code.K #972 currently
 LDPC_OUTPUT_LENGTH = ldpc_code.Nv #972 * 2 = 1944  # Rate 1/2
+assert DATA_BLOCK_LENGTH == LDPC_OUTPUT_LENGTH, f"Expected two LDPC blocks per OFDM block"

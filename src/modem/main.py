@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
@@ -125,16 +126,11 @@ def decode_data(sent_data_qpsk_values: npt.NDArray[np.complex128],signal: npt.ND
     bits = bits[:(bits.size // LDPC_OUTPUT_LENGTH) * LDPC_OUTPUT_LENGTH]
     sent_bits = bits.reshape(-1, LDPC_OUTPUT_LENGTH)
 
-    #_,noise_var = estimate.estimate_noise_var(recv_data_qpsk_symbols, data_freq_gains, data_qpsk_values)
-    llr_imag, llr_real = estimate.find_LLRs(adjusted_data_qpsk_symbols, data_freq_gains, noise_var)
-
-    llr = np.column_stack((llr_imag.flatten(), llr_real.flatten())).reshape(-1)
-    llr = llr[:(llr.size // LDPC_OUTPUT_LENGTH) * LDPC_OUTPUT_LENGTH].reshape(-1, LDPC_OUTPUT_LENGTH)
+    llr = estimate.find_LLRs(adjusted_data_qpsk_symbols, data_freq_gains, noise_var)
 
     decode_output = [ldpc_code.decode(chunk.copy(), ldpc_dec_type, corr_factor) for chunk in llr]
-    decoded_llr, iterations = zip(*decode_output)
-    print(f"{iterations = }")
-    decoded_llr = np.array(decoded_llr)
+    decoded_llr, iterations = map(np.array, zip(*decode_output))
+    print(f"LDPC decoding finished, all blocks took between {np.min(iterations)} and {np.max(iterations)} iterations")
     bits = (decoded_llr < 0).astype(int)
 
     change_in_llrs = decoded_llr - llr

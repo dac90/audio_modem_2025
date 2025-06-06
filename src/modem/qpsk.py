@@ -1,7 +1,6 @@
 import numpy as np
 import numpy.typing as npt
 from ldpc_jossy.py.ldpc import code
-from modem.estimate import find_LLRs, estimate_noise_var
 import matplotlib.pyplot as plt
 import scipy.signal
 from modem import qpsk, chirp, wav

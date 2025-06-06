@@ -37,16 +37,18 @@ def find_LLRs(
     """Calculate the Log-Likelihood Ratios (LLRs) for each symbol,
     based on normalised received symbols, channel gains, and variance of complex additive noise
     (single value since not normalised by frequency).
-    """
 
-    # [Im0, Re0, Im1, Re1, ...] by [FFT_BIN] 2D array of normalised received QPSK symbols
-    # Normally distributed with mean of QPSK_MULTIPLIER and variance (noise_var / 2)
-    # where noise_var is the variance on the complex Gaussian noise.
-    # Equivalent to y' in Jossy's paper, although note factor of 2 difference in how variance is defined.
-    llrs_unscaled = np.column_stack((received_symbols.flatten().imag, received_symbols.flatten().real)).reshape(-1, received_symbols.shape[1])
-    llrs = np.sqrt(2) * np.abs(channel_gains) ** 2 * QPSK_MULTIPLIER * llrs_unscaled / (noise_var / 2)
+    Expect received_symbols to be 2D array of normalised received QPSK symbols.
+    Normally distributed with mean of QPSK_MULTIPLIER and variance (noise_var / 2*h^2)
+    where noise_var is the variance on the complex Gaussian noise.
+    Equivalent to y' in Jossy's paper, although note factor of 2 difference in how variance is defined.
+    """
+    complex_llrs = np.sqrt(2) * np.abs(channel_gains) ** 2 * QPSK_MULTIPLIER * received_symbols / (noise_var / 2)
+
+    # From N x DATA_BLOCK_LENGTH array of complex LLRs to 2N x DATA_BLOCK_LENGTH array of imaginary and real LLRs
+    llrs = np.column_stack((complex_llrs.flatten().imag, complex_llrs.flatten().real)).reshape(-1, complex_llrs.shape[1])
     
-    # Reshape into M X LDPC_OUTPUT_LENGTH array for LDPC decoding
+    # Reshape into 2N X LDPC_OUTPUT_LENGTH array for LDPC decoding
     llrs = llrs.flatten().reshape(-1, LDPC_OUTPUT_LENGTH)
 
     return llrs
