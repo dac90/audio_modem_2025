@@ -32,7 +32,7 @@ num_variable_nodes = ldpc_code.Nv
 print(num_variable_nodes)
 
 
-def qpsk_encode(bits: npt.NDArray[np.bool]) -> npt.NDArray[np.complex128]:
+def qpsk_encode(bits: npt.NDArray[np.uint8]) -> npt.NDArray[np.complex128]:
     """Encode bytes into constellation symbols
     using QPSK in the frequency domain, before OFDM.
 
@@ -40,7 +40,6 @@ def qpsk_encode(bits: npt.NDArray[np.bool]) -> npt.NDArray[np.complex128]:
     ----------
     bits : npt.NDArray[np.bool]
         Array with bits to be encoded.
-        Bits can be any length and will be padded to full OFDM symbol.
 
     Returns
     ----------
@@ -48,9 +47,7 @@ def qpsk_encode(bits: npt.NDArray[np.bool]) -> npt.NDArray[np.complex128]:
         Returns 1D array of QPSK constellation symbols of size (n * DATA_BLOCK_LENGTH),
         where n = (len(bits) // (2 * DATA_BLOCK_LENGTH))
     """
-    pad_len = int((-len(bits)) % (2 * DATA_BLOCK_LENGTH)) # pads the bits to make sure that they are a multiple of 2 * DATA_BLOCK_LENGTH
-    bits = np.pad(bits, (0, pad_len), constant_values=0) ##### FOR FUTURE : pad with non zeroez to test. #### pads the bits with zeroes according to the pad_len
-
+    assert bits.shape[-1] % (2 * DATA_BLOCK_LENGTH) == 0, f"Bits need to be an even multiple of (2 * DATA_BLOCK_LENGTH), got {bits.shape[-1]}"
     bit_pairs = bits.reshape(-1, 2) # groups the bits into pairs of two.
     gray_indices = (bit_pairs[:, 0] << 1) | bit_pairs[:, 1] 
 
@@ -121,7 +118,7 @@ def decode_ofdm_symbol(
 
     return freq_values
 
-def wiener_filter(y: npt.NDArray[np.complex128], h: npt.NDArray[np.complex128], snr: npt.NDArray[np.float64]):
+def wiener_filter(y: npt.NDArray[np.complex128], h: npt.NDArray[np.complex128], snr: float):
     x = (y * np.conj(h)) / (np.abs(h) ** 2 + (1 / snr))
     return x
 
