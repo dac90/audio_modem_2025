@@ -36,17 +36,17 @@ pcmat = ldpc_code.pcmat()
 def pad_to_multiple(bit_array: npt.NDArray[np.uint8], block_length: int) -> npt.NDArray[np.uint8]:
     """Pad bit array of 0/1 to multiple of block length"""
     (length,) = bit_array.shape
-    pad_len = length % block_length
-
+    pad_len = block_length - (length % block_length)
     rng = np.random.default_rng(seed=RNG_SEED)
-    padding = rng.integers(0, 0, size=pad_len, dtype=np.uint8)
+    padding = rng.integers(0, 1, size=pad_len, dtype=np.uint8)
 
     return np.concatenate((bit_array, padding))
 
 
 def encode_data(data: bytes) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.complex128]]:
     data_bits = np.unpackbits(np.frombuffer(data, dtype=np.uint8))  # convert bytes to bits
-    data_bits = pad_to_multiple(data_bits, LDPC_INPUT_LENGTH).reshape(-1, LDPC_INPUT_LENGTH)
+    # Pad to an even number of OFDM symbols (two LDPC blocks per symbol)
+    data_bits = pad_to_multiple(data_bits, DATA_BLOCK_LENGTH).reshape(-1, LDPC_INPUT_LENGTH)
     coded_data_bits = np.vstack(
         [ldpc_code.encode(ldpc_block) for ldpc_block in data_bits]
     )  # PERFORMS LDPC encoding on each block of input bits and stacks the results. Applies it on each row and then stacks the rows.
