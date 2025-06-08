@@ -90,11 +90,8 @@ def encode_ofdm_symbol(
     #Input: qpsk_values is a 1D array of QPSK symbols (1+j,1-j,-1+j,-1-j...1+j,-1-j,1+j,-1-j) 
     # Output : Multiple arrays of QPSK symbols, each of with qpsk data of size QPSK_BLOCK_LENGTH_DATA and 
     #          zeroes of length POSITIVE_LOWER_BIN and POSITIVE_UPPER_BIN at the beginning and end of the array.
-    assert qpsk_values.shape[0] % DATA_BLOCK_LENGTH == 0, f"QPSK values need to be an even multiple of OFDM length, got {qpsk_values.shape[0]}"
-    qpsk_data_blocks = qpsk_values.reshape(-1, DATA_BLOCK_LENGTH) # matrix with "DATA_block_LENGTH" Columns"
-    qpsk_blocks = np.zeros((qpsk_data_blocks.shape[0], FFT_BLOCK_LENGTH//2), dtype=np.complex128) # FIll the matrix with zeroes.
-    qpsk_blocks[:, POSITIVE_LOWER_BIN:POSITIVE_UPPER_BIN] = qpsk_data_blocks # Fill the matrix with the QPSK data blocks int he middle of the matrix.
-    qpsk_blocks = qpsk_blocks[:, 1:] # Remove the first column of zeroes, as it is not needed for the IFFT.
+    assert qpsk_values.shape[0] % QPSK_BLOCK_LENGTH == 0, f"QPSK values need to be an even multiple of OFDM length, got {qpsk_values.shape[0]}"
+    qpsk_blocks = qpsk_values.reshape(-1, QPSK_BLOCK_LENGTH) # matrix with "DATA_block_LENGTH" Columns"
 
     conj_blocks = np.conj(np.fliplr(qpsk_blocks)) # conjugate and flip them 
     zero_col = np.zeros((np.shape(qpsk_blocks)[0], 1), dtype=np.complex128)
@@ -104,8 +101,26 @@ def encode_ofdm_symbol(
     x = np.hstack([x[:, -CYCLIC_PREFIX_LENGTH:], x]) # Add cyclic prefix to the OFDM symbol
     np.testing.assert_allclose(np.imag(x), np.zeros_like(x), atol=1e-14)
 
-    return np.real(x) # return the real part in case we have small imaginary values due to numerical errors 
-# encode_ofdm_symbol(random_symbols)
+    return np.real(x) # return the real part in case we have small imaginary values due to numerical errors
+
+
+def encode_data_ofdm_symbol(
+    qpsk_values: npt.NDArray[np.complex128],
+    ) -> npt.NDArray[np.float64]:
+    """Encode constellation symbols in frequency-domain
+    into time-domain OFDM symbol for transmission"""
+
+    #Input: qpsk_values is a 1D array of QPSK symbols (1+j,1-j,-1+j,-1-j...1+j,-1-j,1+j,-1-j) 
+    # Output : Multiple arrays of QPSK symbols, each of with qpsk data of size QPSK_BLOCK_LENGTH_DATA and 
+    #          zeroes of length POSITIVE_LOWER_BIN and POSITIVE_UPPER_BIN at the beginning and end of the array.
+    assert qpsk_values.shape[0] % DATA_BLOCK_LENGTH == 0, f"QPSK values need to be an even multiple of OFDM length, got {qpsk_values.shape[0]}"
+    qpsk_data_blocks = qpsk_values.reshape(-1, DATA_BLOCK_LENGTH) # matrix with "DATA_block_LENGTH" Columns"
+    qpsk_blocks = np.zeros((qpsk_data_blocks.shape[0], FFT_BLOCK_LENGTH//2), dtype=np.complex128) # FIll the matrix with zeroes.
+    qpsk_blocks[:, POSITIVE_LOWER_BIN:POSITIVE_UPPER_BIN] = qpsk_data_blocks # Fill the matrix with the QPSK data blocks int he middle of the matrix.
+    qpsk_blocks = qpsk_blocks[:, 1:] # Remove the first column of zeroes, as it is not needed for the IFFT.
+
+    return encode_ofdm_symbol(qpsk_blocks.flatten())
+
 
 def decode_ofdm_symbol(
     ofdm_symbol: npt.NDArray[np.float64]

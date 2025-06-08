@@ -36,7 +36,8 @@ pcmat = ldpc_code.pcmat()
 def pad_to_multiple(bit_array: npt.NDArray[np.uint8], block_length: int) -> npt.NDArray[np.uint8]:
     """Pad bit array of 0/1 to multiple of block length"""
     (length,) = bit_array.shape
-    pad_len = block_length - (length % block_length)
+    remainder = length % block_length
+    pad_len = block_length - remainder if remainder != 0 else 0
     rng = np.random.default_rng(seed=RNG_SEED)
     padding = rng.integers(0, 1, size=pad_len, dtype=np.uint8)
 
@@ -53,7 +54,7 @@ def encode_data(data: bytes) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.co
     data_qpsk_values = qpsk.qpsk_encode(
         coded_data_bits.flatten()
     )  # Encodes the coded data bits into qpsk symbols based on the gray code.
-    data_ofdm_symbols = qpsk.encode_ofdm_symbol(
+    data_ofdm_symbols = qpsk.encode_data_ofdm_symbol(
         data_qpsk_values
     )  # Encode the ofdm symbols from the qpsk symbols (i.e tke the IFFT)
 
@@ -63,7 +64,7 @@ def encode_data(data: bytes) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.co
     pilot_qpsk_symbols = pilot.generate_pilot_blocks(
         math.ceil(num_ofdm_blocks / DATA_PER_PILOT)
     )  # generate the pilto blocks
-    pilot_ofdm_symbols = qpsk.encode_ofdm_symbol(
+    pilot_ofdm_symbols = qpsk.encode_data_ofdm_symbol(
         pilot_qpsk_symbols.flatten()
     )  # Encode the pilot blocks into OFDM symbols
     ofdm_symbols = pilot.interleave_pilot_blocks(
