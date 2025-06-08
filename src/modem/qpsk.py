@@ -47,7 +47,6 @@ def qpsk_encode(bits: npt.NDArray[np.uint8]) -> npt.NDArray[np.complex128]:
         Returns 1D array of QPSK constellation symbols of size (n * DATA_BLOCK_LENGTH),
         where n = (len(bits) // (2 * DATA_BLOCK_LENGTH))
     """
-    assert bits.shape[-1] % (2 * DATA_BLOCK_LENGTH) == 0, f"Bits need to be an even multiple of (2 * DATA_BLOCK_LENGTH), got {bits.shape[-1]}"
     bit_pairs = bits.reshape(-1, 2) # groups the bits into pairs of two.
     gray_indices = (bit_pairs[:, 0] << 1) | bit_pairs[:, 1] 
 

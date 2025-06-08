@@ -11,6 +11,8 @@ from modem.constants import (
     DATA_BLOCK_LENGTH,
     LOWER_FREQUENCY_BOUND,
     OFDM_SYMBOL_LENGTH,
+    POSITIVE_LOWER_BIN,
+    POSITIVE_UPPER_BIN,
     RNG_SEED,
     UPPER_FREQUENCY_BOUND,
     ldpc_standard,
@@ -64,7 +66,7 @@ def encode_data(data: bytes) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.co
     pilot_qpsk_symbols = pilot.generate_pilot_blocks(
         math.ceil(num_ofdm_blocks / DATA_PER_PILOT)
     )  # generate the pilto blocks
-    pilot_ofdm_symbols = qpsk.encode_data_ofdm_symbol(
+    pilot_ofdm_symbols = qpsk.encode_ofdm_symbol(
         pilot_qpsk_symbols.flatten()
     )  # Encode the pilot blocks into OFDM symbols
     ofdm_symbols = pilot.interleave_pilot_blocks(
@@ -92,6 +94,10 @@ def decode_data(
     data_blocks, pilot_blocks = pilot.extract_pilot_blocks(received_QPSK)
 
     sent_pilot_qpsk_symbols = pilot.generate_pilot_blocks(pilot_blocks.shape[0])
+    sent_pilot_qpsk_symbols = np.hstack([
+        np.zeros((np.shape(sent_pilot_qpsk_symbols)[0], 1), dtype=np.complex128),
+        sent_pilot_qpsk_symbols
+    ])[:, POSITIVE_LOWER_BIN:POSITIVE_UPPER_BIN]
     known_qpsk_symbols = pilot.interleave_pilot_blocks(
         np.full(data_blocks.shape, np.nan, dtype=np.complex128), sent_pilot_qpsk_symbols
     )
