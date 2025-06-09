@@ -46,7 +46,7 @@ def find_LLRs(
     complex_llrs = np.sqrt(2) * np.abs(channel_gains) ** 2 * QPSK_MULTIPLIER * received_symbols / (noise_var / 2)
 
     # From N x DATA_BLOCK_LENGTH array of complex LLRs to 2N x DATA_BLOCK_LENGTH array of imaginary and real LLRs
-    llrs = np.column_stack((complex_llrs.flatten().imag, complex_llrs.flatten().real)).reshape(-1, complex_llrs.shape[1])
+    llrs = np.column_stack((complex_llrs.flatten().real, complex_llrs.flatten().imag)).reshape(-1, complex_llrs.shape[1])
     
     # Reshape into 2N X LDPC_OUTPUT_LENGTH array for LDPC decoding
     llrs = llrs.flatten().reshape(-1, LDPC_OUTPUT_LENGTH)

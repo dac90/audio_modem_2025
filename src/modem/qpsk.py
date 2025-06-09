@@ -53,8 +53,8 @@ def qpsk_encode(bits: npt.NDArray[np.uint8]) -> npt.NDArray[np.complex128]:
     qpsk_constellation = np.array(
         [
             (1 + 1j),  # 00
-            (-1 + 1j),  # 01
-            (1 - 1j),  # 10
+            (1 - 1j),  # 01
+            (-1 + 1j),  # 10
             (-1 - 1j),  # 11
         ]
     )
