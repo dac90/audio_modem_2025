@@ -120,6 +120,9 @@ def decode_data(
     decode_output = [ldpc_code.decode(chunk.copy(), ldpc_dec_type, corr_factor) for chunk in llr]
     decoded_llr, iterations = map(np.array, zip(*decode_output))
     print(f"LDPC decoding finished, all blocks took between {np.min(iterations)} and {np.max(iterations)} iterations")
+    non_converged_blocks = np.nonzero(iterations == 200)
+    if non_converged_blocks:
+        print("Indices of non-converged data blocks: " + ",".join(str(i[0]) for i in non_converged_blocks))
     bits = (decoded_llr < 0).astype(int)
     print(
         f"Fraction of LLRs updated {np.mean(llr != decoded_llr)}, fraction of LLR bits flipped {np.mean((llr > 0) != (decoded_llr > 0))}"
